@@ -60,7 +60,7 @@ async function loadAppHeader() {
             onThemeToggle: toggleTheme,
             onReconfigure: reconfigureApp,
             onSaveProject: handleSaveProject,
-            onGoHomeClick: showEntryPoint,
+            onGoHomeClick: showEntryPoint, // ✨ ADDED: New callback for the header
             onExportPdfReport: () => {
                 if (!isAuthenticated) { showLoginModal(); return; }
                 calculateTotals();
@@ -114,6 +114,7 @@ async function loadSummaryOverview() {
 
         SummaryOverview.init({
             projectSettings: projectSettings,
+            estimateItems: estimateItems,
             formatCurrency: formatCurrency,
             formatHours: formatHours,
             isDarkTheme: isDarkTheme
@@ -148,7 +149,7 @@ async function loadQuickQuoteSummary() {
 }
 
 
-async function loadSetupWizard(startStep = 1) {
+async function loadSetupWizard() {
     try {
         const htmlResponse = await fetch('src/sections/SetupWizard/SetupWizard.html');
         if (!htmlResponse.ok) throw new Error(`HTTP error! status: ${htmlResponse.status} for SetupWizard.html`);
@@ -168,7 +169,7 @@ async function loadSetupWizard(startStep = 1) {
             mode: currentAppMode
         });
         
-        SetupWizard.showStep(startStep);
+        SetupWizard.showStep(1);
         SetupWizard.populateTradesDropdown();
         SetupWizard.updateSelectedTradesDisplay();
         SetupWizard.updateSalesTaxForState(projectSettings.projectState);
@@ -186,9 +187,6 @@ async function loadSavedProjects() {
         const html = await htmlResponse.text();
         document.getElementById('savedProjectsPlaceholder').innerHTML = html;
         
-        // ✨ FIX: This line makes the saved projects container visible
-        document.getElementById('savedProjectsContainer').classList.remove('hidden');
-
         SavedProjects.init({
             onGoToCalculator: showMainApp,
             onLoadProject: handleProjectLoad, 
@@ -255,7 +253,6 @@ function formatHours(hours) {
     return parseFloat(hours).toFixed(2);
 }
 
-// ✨ MODIFIED: Data structure now uses a 'laborEntries' array
 const initialProjectSettings = JSON.parse(JSON.stringify({
     projectName: "New Project",
     clientName: "",
@@ -300,21 +297,12 @@ const initialProjectSettings = JSON.parse(JSON.stringify({
 
 const initialEstimateItems = JSON.parse(JSON.stringify([
     {
-        id: Date.now(),
-        taskName: 'First Task',
-        description: 'Detail your first project task here.',
-        laborEntries: [
-            { id: `lab_${Date.now()}`, trade: 'General', rateRole: 'Journeyman', hours: 0, otDtMultiplier: 1.0 }
-        ],
-        materialQuantity: 0,
-        materialUnitCost: 0,
-        equipmentRentalCost: 0,
-        subcontractorCostLineItem: 0,
-        miscLineItem: 0,
-        isChangeOrder: false
+        id: Date.now(), taskName: 'First Task', description: 'Detail your first project task here.',
+        trade: 'General', rateRole: 'Journeyman', hours: 0, otDtMultiplier: 1.0,
+        materialQuantity: 0, materialUnitCost: 0, equipmentRentalCost: 0,
+        subcontractorCostLineItem: 0, miscLineItem: 0
     }
 ]));
-
 
 let projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
 let estimateItems = JSON.parse(JSON.stringify(initialEstimateItems));
@@ -358,7 +346,7 @@ function toggleTheme() {
         AppHeader.updateThemeToggleSlider(isDarkTheme);
     }
     if (currentAppMode === 'detailed') {
-        SummaryOverview.updateSummaries(projectSettings, isDarkTheme);
+        SummaryOverview.updateSummaries(projectSettings, estimateItems, isDarkTheme);
     } else if (currentAppMode === 'quickQuote' && QuickQuoteSummary && typeof QuickQuoteSummary.calculateTotals === 'function') {
         QuickQuoteSummary.calculateTotals();
     }
@@ -400,26 +388,24 @@ function handleWizardCompletion(updatedSettings) {
     AppHeader.updateLogo(projectSettings.contractorLogo);
 
     populateDefaultTradeSelector();
-    
-    // ✨ MODIFIED: Update the first labor entry of the first item
-    if (estimateItems.length > 0 && estimateItems[0].laborEntries.length > 0) {
-        const firstLaborEntry = estimateItems[0].laborEntries[0];
+
+    if (estimateItems.length > 0) {
+        const firstItem = estimateItems[0];
         const defaultTrade = projectSettings.activeTrades.length > 0 ? projectSettings.activeTrades[0] : "General";
-        firstLaborEntry.trade = defaultTrade;
-        const availableRoles = Object.keys(projectSettings.allTradeLaborRates[firstLaborEntry.trade] || {});
-        firstLaborEntry.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
+        firstItem.trade = defaultTrade;
+        const availableRoles = Object.keys(projectSettings.allTradeLaborRates[firstItem.trade] || {});
+        firstItem.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
     }
 
-    renderItems(); // This calls calculateTotals which calls SummaryOverview.updateSummaries
+    renderItems();
 
+    if (currentAppMode === 'detailed') {
+        SummaryOverview.updateSummaries(projectSettings, estimateItems, isDarkTheme);
+    }
 }
 
 function showEntryPoint() {
     currentAppMode = 'entry';
-
-    // Reset project data when returning to the entry point
-    projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
-    estimateItems = JSON.parse(JSON.stringify(initialEstimateItems));
 
     appHeaderContainer.classList.add('hidden');
     mainApp.classList.add('hidden');
@@ -433,33 +419,12 @@ function showEntryPoint() {
     AppHeader.updateLogo('');
 }
 
-/**
- * NEW: Smarter reconfigure logic.
- */
 function reconfigureApp() {
-    if (currentAppMode === 'detailed') {
-        reconfigureDetailedProject();
-    } else {
-        // For Quick Quote or other modes, the original behavior is fine
-        showEntryPoint();
-    }
-}
-
-/**
- * NEW: Handles reconfiguring a detailed project by going back to the wizard.
- */
-async function reconfigureDetailedProject() {
-    // Hide main app views
-    mainApp.classList.add('hidden');
-    quickQuoteApp.classList.add('hidden');
-    appHeaderContainer.classList.add('hidden');
-
-    // Load the wizard and jump to the last step (Step 3)
-    await loadSetupWizard(3);
+    showEntryPoint();
 }
 
 function showSetupWizard() {
-    loadSetupWizard(1);
+    loadSetupWizard();
 }
 
 function showMainApp() {
@@ -575,25 +540,20 @@ const stateSalesTax = {
     'WI': 5.0, 'WY': 4.0
 };
 
-// ✨ MODIFIED: addItem now creates an item with a laborEntries array
 function addItem() {
     const defaultTradeForNewItem = currentlySelectedTradeForLineItems;
     const defaultRoleForNewItem = projectSettings.allTradeLaborRates[defaultTradeForNewItem] && Object.keys(projectSettings.allTradeLaborRates[defaultTradeForNewItem]).length > 0 ? Object.keys(projectSettings.allTradeLaborRates[defaultTradeForNewItem])[0] : "Journeyman";
 
     const newItem = {
-        id: Date.now(),
-        taskName: 'New Task',
-        description: 'Add a description for your new task.',
-        laborEntries: [
-            { id: `lab_${Date.now()}`, trade: defaultTradeForNewItem, rateRole: defaultRoleForNewItem, hours: 0, otDtMultiplier: 1.0 }
-        ],
+        id: Date.now(), taskName: 'New Task', description: 'Add a description for your new task.',
+        trade: defaultTradeForNewItem, rateRole: defaultRoleForNewItem, hours: 0,
+        otDtMultiplier: 1.0,
         materialQuantity: 0, materialUnitCost: 0, equipmentRentalCost: 0,
-        subcontractorCostLineItem: 0, miscLineItem: 0, isChangeOrder: false
+        subcontractorCostLineItem: 0, miscLineItem: 0
     };
     estimateItems.push(newItem);
     renderItems();
 }
-
 
 function deleteItem(id) {
     estimateItems = estimateItems.filter(item => item.id !== id);
@@ -605,13 +565,8 @@ function duplicateItem(id) {
 
     if (itemToDuplicateIndex !== -1) {
         const originalItem = estimateItems[itemToDuplicateIndex];
-        const duplicatedItem = JSON.parse(JSON.stringify(originalItem)); // Deep copy
+        const duplicatedItem = JSON.parse(JSON.stringify(originalItem));
         duplicatedItem.id = Date.now();
-        // ✨ NEW: Assign new unique IDs to each duplicated labor entry
-        duplicatedItem.laborEntries = duplicatedItem.laborEntries.map(entry => ({
-            ...entry,
-            id: `lab_${Date.now()}_${Math.random()}`
-        }));
         estimateItems.splice(itemToDuplicateIndex + 1, 0, duplicatedItem);
         renderItems();
 
@@ -629,14 +584,15 @@ function duplicateItem(id) {
     }
 }
 
-// ✨ REFACTORED: updateItem handles non-labor fields
 function updateItem(id, field, value) {
     const item = estimateItems.find(item => item.id === id);
     if (item) {
-        if (['materialQuantity', 'materialUnitCost', 'equipmentRentalCost', 'subcontractorCostLineItem', 'miscLineItem'].includes(field)) {
+        if (['hours', 'materialQuantity', 'materialUnitCost', 'equipmentRentalCost', 'subcontractorCostLineItem', 'miscLineItem', 'otDtMultiplier'].includes(field)) {
             item[field] = parseFloat(value) || 0;
-        } else if (field === 'isChangeOrder') {
-            item[field] = value;
+        } else if (field === 'trade') {
+            item.trade = value;
+            const availableRoles = Object.keys(projectSettings.allTradeLaborRates[item.trade] || {});
+            item.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
         } else {
             item[field] = value;
         }
@@ -644,104 +600,10 @@ function updateItem(id, field, value) {
     }
 }
 
-// ✨ NEW: Function to update a specific labor entry within an item
-function updateLaborEntry(itemId, laborId, field, value) {
-    const item = estimateItems.find(item => item.id === itemId);
-    if (item) {
-        const laborEntry = item.laborEntries.find(le => le.id === laborId);
-        if (laborEntry) {
-            if (['hours', 'otDtMultiplier'].includes(field)) {
-                laborEntry[field] = parseFloat(value) || 0;
-            } else if (field === 'trade') {
-                laborEntry.trade = value;
-                // Auto-update skill to the first available for the new trade
-                const availableRoles = Object.keys(projectSettings.allTradeLaborRates[laborEntry.trade] || {});
-                laborEntry.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
-            } else {
-                laborEntry[field] = value;
-            }
-            renderItems();
-        }
-    }
-}
-
-// ✨ NEW: Function to add a new labor entry to an item
-function addLaborEntry(itemId) {
-    const item = estimateItems.find(item => item.id === itemId);
-    if (item) {
-        const defaultTrade = currentlySelectedTradeForLineItems || projectSettings.activeTrades[0] || "General";
-        const defaultRole = projectSettings.allTradeLaborRates[defaultTrade] && Object.keys(projectSettings.allTradeLaborRates[defaultTrade]).length > 0 ? Object.keys(projectSettings.allTradeLaborRates[defaultTrade])[0] : "Journeyman";
-        
-        item.laborEntries.push({
-            id: `lab_${Date.now()}_${Math.random()}`,
-            trade: defaultTrade,
-            rateRole: defaultRole,
-            hours: 0,
-            otDtMultiplier: 1.0
-        });
-        renderItems();
-    }
-}
-
-// ✨ NEW: Function to delete a labor entry from an item
-function deleteLaborEntry(itemId, laborId) {
-    const item = estimateItems.find(item => item.id === itemId);
-    if (item) {
-        if (item.laborEntries.length > 1) { // Prevent deleting the last one
-            item.laborEntries = item.laborEntries.filter(le => le.id !== laborId);
-            renderItems();
-        } else {
-            renderMessageBox("Each task must have at least one labor entry.");
-        }
-    }
-}
-
-/**
- * ✨ NEW: Toggles all line items between expanded and collapsed states.
- */
-function toggleAllItems() {
-    if (!estimateItemsContainer) return;
-    
-    // Check if any item is currently expanded
-    const isAnyExpanded = !!document.querySelector('.line-item-row.expanded');
-    const action = isAnyExpanded ? 'collapse' : 'expand';
-
-    document.querySelectorAll('.line-item-row').forEach(row => {
-        const details = row.querySelector('.line-item-details');
-        if (action === 'collapse') {
-            row.classList.remove('expanded');
-            details.classList.remove('expanded');
-        } else {
-            row.classList.add('expanded');
-            details.classList.add('expanded');
-        }
-    });
-
-    // Update the icon
-    updateCollapseIcon();
-}
-
-/**
- * ✨ NEW: Updates the collapse/expand icon based on the state of the items.
- */
-function updateCollapseIcon() {
-    const collapseIconElem = document.getElementById('collapseIcon');
-    if (!collapseIconElem) return;
-
-    const isAnyExpanded = !!document.querySelector('.line-item-row.expanded');
-    
-    // SVG path for "expand all" (four arrows pointing outwards)
-    const expandIconPath = `<path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>`;
-    // SVG path for "collapse all" (four arrows pointing inwards)
-    const collapseIconPath = `<path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>`;
-
-    collapseIconElem.innerHTML = isAnyExpanded ? collapseIconPath : expandIconPath;
-}
-
-// ✨ REFACTORED: renderItems now handles the new laborEntries array and elegant UI
 function renderItems() {
     if(!estimateItemsContainer) return;
     
+    // Store which items are currently expanded
     const expandedIds = new Set();
     document.querySelectorAll('.line-item-row.expanded').forEach(row => {
         expandedIds.add(parseInt(row.dataset.id));
@@ -752,71 +614,28 @@ function renderItems() {
     const activeTrades = projectSettings.activeTrades;
 
     estimateItems.forEach(item => {
-        let totalLaborForItem = 0;
-        // Ensure laborEntries exists and is an array
-        if (!item.laborEntries || !Array.isArray(item.laborEntries)) {
-            item.laborEntries = [{ id: `lab_${Date.now()}`, trade: 'General', rateRole: 'Journeyman', hours: 0, otDtMultiplier: 1.0 }];
+        // Data validation and sanitization
+        if (!activeTrades.includes(item.trade)) {
+            item.trade = activeTrades.length > 0 ? activeTrades[0] : "General";
         }
-        item.laborEntries.forEach(le => {
-            const laborRate = projectSettings.allTradeLaborRates[le.trade]?.[le.rateRole] || 0;
-            const effectiveLaborRate = laborRate * (le.otDtMultiplier || 1.0);
-            totalLaborForItem += le.hours * effectiveLaborRate;
-        });
+        if (!projectSettings.allTradeLaborRates[item.trade] || !projectSettings.allTradeLaborRates[item.trade][item.rateRole]) {
+            const availableRoles = Object.keys(projectSettings.allTradeLaborRates[item.trade] || {});
+            item.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
+        }
 
+        // Calculations
+        const laborRate = projectSettings.allTradeLaborRates[item.trade]?.[item.rateRole] || 0;
+        const effectiveLaborRate = laborRate * (item.otDtMultiplier || 1.0);
+        const laborTotal = item.hours * effectiveLaborRate;
         const materialsTotal = item.materialQuantity * item.materialUnitCost;
         const otherCategoryTotal = item.equipmentRentalCost + item.subcontractorCostLineItem + item.miscLineItem;
-        const lineTotal = totalLaborForItem + materialsTotal + otherCategoryTotal;
+        const lineTotal = laborTotal + materialsTotal + otherCategoryTotal;
 
         const isExpanded = expandedIds.has(item.id);
 
         const itemRow = document.createElement('div');
-        itemRow.className = `line-item-row ${isExpanded ? 'expanded' : ''} ${item.isChangeOrder ? 'is-change-order' : ''}`;
+        itemRow.className = `line-item-row ${isExpanded ? 'expanded' : ''}`;
         itemRow.dataset.id = item.id;
-
-        const laborEntriesHtml = item.laborEntries.map(le => {
-             // Data validation for each labor entry
-            if (!activeTrades.includes(le.trade)) {
-                le.trade = activeTrades.length > 0 ? activeTrades[0] : "General";
-            }
-            if (!projectSettings.allTradeLaborRates[le.trade] || !projectSettings.allTradeLaborRates[le.trade][le.rateRole]) {
-                const availableRoles = Object.keys(projectSettings.allTradeLaborRates[le.trade] || {});
-                le.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
-            }
-
-            return `
-                <div class="labor-entry-row" data-labor-id="${le.id}">
-                    <div class="form-group">
-                        <label class="label">Trade</label>
-                        <select data-field="trade" class="input-field">
-                            ${activeTrades.map(tradeOption => `<option value="${tradeOption}" ${le.trade === tradeOption ? 'selected' : ''}>${tradeOption}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Skill</label>
-                        <select data-field="rateRole" class="input-field">
-                            ${(projectSettings.allTradeLaborRates[le.trade] ? Object.keys(projectSettings.allTradeLaborRates[le.trade]) : []).map(role => `<option value="${role}" ${le.rateRole === role ? 'selected' : ''}>${role}</option>`).join('')}
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label class="label">Hours</label>
-                        <input type="number" value="${le.hours}" data-field="hours" class="input-field">
-                    </div>
-                    <div class="form-group">
-                        <label class="label">OT/DT Multiplier</label>
-                        <div class="flex items-center gap-2">
-                             <select data-field="otDtMultiplier" class="input-field">
-                                <option value="1.0" ${le.otDtMultiplier === 1.0 ? 'selected' : ''}>1.0x</option>
-                                <option value="1.5" ${le.otDtMultiplier === 1.5 ? 'selected' : ''}>1.5x</option>
-                                <option value="2.0" ${le.otDtMultiplier === 2.0 ? 'selected' : ''}>2.0x</option>
-                            </select>
-                            <button class="icon-btn-red" data-action="delete-labor" title="Delete Labor Entry">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m-6 5v6m4-6v6"/></svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }).join('');
 
         itemRow.innerHTML = `
             <div class="line-item-header">
@@ -824,8 +643,12 @@ function renderItems() {
                 <div class="description">${item.description}</div>
                 <div class="line-total">${formatCurrency(lineTotal)}</div>
                 <div class="actions">
-                    <button class="btn btn-orange btn-sm" data-action="duplicate" title="Duplicate Item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
-                    <button class="btn btn-red btn-sm" data-action="delete" title="Delete Item"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg></button>
+                    <button class="btn btn-orange btn-sm" data-action="duplicate" title="Duplicate Item">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    </button>
+                    <button class="btn btn-red btn-sm" data-action="delete" title="Delete Item">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x-circle"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                    </button>
                     <svg class="expand-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
                 </div>
             </div>
@@ -833,33 +656,72 @@ function renderItems() {
                 <div class="details-grid">
                     <div class="details-section">
                         <h4>Task Details</h4>
-                        <div class="form-group"><label class="label">Task Name</label><input type="text" value="${item.taskName}" data-field="taskName" class="input-field"></div>
-                        <div class="form-group"><label class="label">Description</label><textarea rows="3" data-field="description" class="input-field">${item.description}</textarea></div>
-                        <div class="form-group flex items-center gap-3 mt-3"><input type="checkbox" id="isChangeOrder_${item.id}" data-field="isChangeOrder" class="h-5 w-5 rounded" ${item.isChangeOrder ? 'checked' : ''}><label for="isChangeOrder_${item.id}" class="label mb-0 cursor-pointer">Mark as Change Order</label></div>
+                        <div class="form-group">
+                            <label class="label">Task Name</label>
+                            <input type="text" value="${item.taskName}" data-field="taskName" class="input-field">
+                        </div>
+                        <div class="form-group">
+                            <label class="label">Description</label>
+                            <textarea rows="3" data-field="description" class="input-field">${item.description}</textarea>
+                        </div>
                     </div>
                     <div class="details-section">
                         <h4>Labor</h4>
-                        <div class="labor-entries-container">${laborEntriesHtml}</div>
-                        <div class="add-labor-btn-container">
-                            <button class="add-labor-btn" data-action="add-labor" title="Add another labor entry">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                                <span>Add Labor</span>
-                            </button>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="form-group">
+                                <label class="label">Trade</label>
+                                <select data-field="trade" class="input-field">
+                                    ${activeTrades.map(tradeOption => `<option value="${tradeOption}" ${item.trade === tradeOption ? 'selected' : ''}>${tradeOption}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="label">Skill</label>
+                                <select data-field="rateRole" class="input-field">
+                                     ${(projectSettings.allTradeLaborRates[item.trade] ? Object.keys(projectSettings.allTradeLaborRates[item.trade]) : []).map(role => `<option value="${role}" ${item.rateRole === role ? 'selected' : ''}>${role}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="label">Hours</label>
+                                <input type="number" value="${item.hours}" data-field="hours" class="input-field">
+                            </div>
+                             <div class="form-group">
+                                <label class="label">OT/DT Multiplier</label>
+                                <select data-field="otDtMultiplier" class="input-field">
+                                    <option value="1.0" ${item.otDtMultiplier === 1.0 ? 'selected' : ''}>1.0x</option>
+                                    <option value="1.5" ${item.otDtMultiplier === 1.5 ? 'selected' : ''}>1.5x</option>
+                                    <option value="2.0" ${item.otDtMultiplier === 2.0 ? 'selected' : ''}>2.0x</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                      <div class="details-section">
                         <h4>Materials</h4>
                          <div class="grid grid-cols-2 gap-4">
-                            <div class="form-group"><label class="label">Quantity</label><input type="number" value="${item.materialQuantity}" data-field="materialQuantity" class="input-field"></div>
-                            <div class="form-group"><label class="label">Cost per Unit ($)</label><input type="number" value="${item.materialUnitCost}" data-field="materialUnitCost" class="input-field"></div>
+                            <div class="form-group">
+                                <label class="label">Quantity</label>
+                                <input type="number" value="${item.materialQuantity}" data-field="materialQuantity" class="input-field">
+                            </div>
+                            <div class="form-group">
+                                <label class="label">Cost per Unit ($)</label>
+                                <input type="number" value="${item.materialUnitCost}" data-field="materialUnitCost" class="input-field">
+                            </div>
                         </div>
                     </div>
                     <div class="details-section">
                         <h4>Other Costs ($)</h4>
                          <div class="grid grid-cols-2 gap-4">
-                           <div class="form-group"><label class="label">Equipment/Rental</label><input type="number" value="${item.equipmentRentalCost}" data-field="equipmentRentalCost" class="input-field"></div>
-                            <div class="form-group"><label class="label">Subcontractor</label><input type="number" value="${item.subcontractorCostLineItem}" data-field="subcontractorCostLineItem" class="input-field"></div>
-                             <div class="form-group col-span-2"><label class="label">Misc.</label><input type="number" value="${item.miscLineItem}" data-field="miscLineItem" class="input-field"></div>
+                           <div class="form-group">
+                                <label class="label">Equipment/Rental</label>
+                                <input type="number" value="${item.equipmentRentalCost}" data-field="equipmentRentalCost" class="input-field">
+                            </div>
+                            <div class="form-group">
+                                <label class="label">Subcontractor</label>
+                                <input type="number" value="${item.subcontractorCostLineItem}" data-field="subcontractorCostLineItem" class="input-field">
+                            </div>
+                             <div class="form-group col-span-2">
+                                <label class="label">Misc.</label>
+                                <input type="number" value="${item.miscLineItem}" data-field="miscLineItem" class="input-field">
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -868,16 +730,11 @@ function renderItems() {
         estimateItemsContainer.appendChild(itemRow);
     });
     calculateTotals();
-    updateCollapseIcon();
 }
 
-// ✨ REFACTORED: calculateTotals now iterates through the nested laborEntries
 function calculateTotals() {
     let totalLaborCost = 0, totalMaterialCostRaw = 0, totalEquipmentCost = 0, totalSubcontractorCost = 0, totalMiscLineItemCosts = 0;
     let laborHoursBreakdown = {};
-    let originalDirectCost = 0;
-    let changeOrderDirectCost = 0;
-
     const allPossibleRoles = new Set();
     Object.keys(projectSettings.allTradeLaborRates).forEach(trade => {
         if (projectSettings.allTradeLaborRates[trade]) {
@@ -888,45 +745,37 @@ function calculateTotals() {
 
     if (currentAppMode === 'detailed') {
         estimateItems.forEach(item => {
-            let itemLaborCost = 0;
-            if (item.laborEntries) {
-                item.laborEntries.forEach(le => {
-                    const laborRate = projectSettings.allTradeLaborRates[le.trade]?.[le.rateRole] || 0;
-                    const effectiveLaborRate = laborRate * (le.otDtMultiplier || 1.0);
-                    const laborTotalForEntry = le.hours * effectiveLaborRate;
-                    itemLaborCost += laborTotalForEntry;
-                    if (laborHoursBreakdown[le.rateRole] !== undefined) {
-                        laborHoursBreakdown[le.rateRole] += le.hours;
-                    }
-                });
-            }
-            
-            totalLaborCost += itemLaborCost;
+            const laborRate = projectSettings.allTradeLaborRates[item.trade]?.[item.rateRole] || 0;
+            const effectiveLaborRate = laborRate * (item.otDtMultiplier || 1.0);
+            const laborTotal = item.hours * effectiveLaborRate;
             const materialsTotal = item.materialQuantity * item.materialUnitCost;
+            totalLaborCost += laborTotal;
             totalMaterialCostRaw += materialsTotal;
             totalEquipmentCost += item.equipmentRentalCost;
             totalSubcontractorCost += item.subcontractorCostLineItem;
             totalMiscLineItemCosts += item.miscLineItem;
-            
-            const lineItemDirectCost = itemLaborCost + materialsTotal + item.equipmentRentalCost + item.subcontractorCostLineItem + item.miscLineItem;
-            
-            if (item.isChangeOrder) {
-                changeOrderDirectCost += lineItemDirectCost;
-            } else {
-                originalDirectCost += lineItemDirectCost;
+            if (laborHoursBreakdown[item.rateRole] !== undefined) {
+                laborHoursBreakdown[item.rateRole] += item.hours;
             }
         });
-    } else { 
-        // QuickQuote logic remains the same, doesn't use change orders
+    } else if (currentAppMode === 'quickQuote') {
         if (QuickQuoteSummary && typeof QuickQuoteSummary.getQuickQuoteItems === 'function') {
             const quickQuoteItems = QuickQuoteSummary.getQuickQuoteItems();
             quickQuoteItems.forEach(item => {
-                 if (item.type === 'labor') totalLaborCost += item.totalAmount;
-                 else if (item.type === 'material') totalMaterialCostRaw += item.totalAmount;
-                 else if (item.type === 'equipment') totalEquipmentCost += item.totalAmount;
-                 else totalMiscLineItemCosts += item.totalAmount;
+                if (item.type === 'labor') {
+                    totalLaborCost += item.totalAmount;
+                    if (laborHoursBreakdown["Journeyman"] !== undefined) {
+                        laborHoursBreakdown["Journeyman"] += item.totalAmount / (projectSettings.allTradeLaborRates?.General?.Journeyman || 75);
+                    }
+                } else if (item.type === 'material') {
+                    totalMaterialCostRaw += item.totalAmount;
+                } else if (item.type === 'equipment') {
+                    totalEquipmentCost += item.totalAmount;
+                } else {
+                    totalMiscLineItemCosts += item.totalAmount;
+                }
             });
-             if (QuickQuoteSummary && typeof QuickQuoteSummary.getQuickQuoteSettings === 'function') {
+            if (QuickQuoteSummary && typeof QuickQuoteSummary.getQuickQuoteSettings === 'function') {
                 const qqSettings = QuickQuoteSummary.getQuickQuoteSettings();
                 projectSettings.overhead = qqSettings.overhead;
                 projectSettings.materialMarkup = qqSettings.materialMarkup;
@@ -936,13 +785,8 @@ function calculateTotals() {
         }
     }
 
+
     const totalProjectCostDirect = totalLaborCost + totalMaterialCostRaw + totalEquipmentCost + totalSubcontractorCost + totalMiscLineItemCosts;
-    
-    projectSettings.totalLaborCost = totalLaborCost;
-    projectSettings.totalMaterialCostRaw = totalMaterialCostRaw;
-    projectSettings.totalEquipmentCost = totalEquipmentCost;
-    projectSettings.totalSubcontractorCost = totalSubcontractorCost;
-    projectSettings.totalMiscLineItemCosts = totalMiscLineItemCosts;
     projectSettings.totalProjectCostDirect = totalProjectCostDirect;
 
     const materialMarkupPercent = parseFloat(projectSettings.materialMarkup) || 0;
@@ -952,64 +796,41 @@ function calculateTotals() {
     const salesTaxPercent = parseFloat(projectSettings.salesTax) || 0;
     const discountPercent = parseFloat(projectSettings.discount) || 0;
     const additionalConsiderationsValue = parseFloat(projectSettings.additionalConsiderationsValue) || 0;
-
-    // ✨ NEW: Apply markups to original and change order costs to get final values
-    const applyMarkups = (directCost) => {
-        if (totalProjectCostDirect === 0) return 0;
-        const costRatio = directCost / totalProjectCostDirect;
-
-        const materialMarkupAmount = (totalMaterialCostRaw * (materialMarkupPercent / 100)) * costRatio;
-        const baseCostForOverheadMiscProfit = directCost + materialMarkupAmount;
-        const totalOverheadCost = baseCostForOverheadMiscProfit * (overheadPercent / 100);
-        const totalMiscCostAmount = baseCostForOverheadMiscProfit * (miscellaneousPercent / 100);
-        const subtotalBeforeProfitTax = baseCostForOverheadMiscProfit + totalMiscCostAmount + totalOverheadCost;
-        const totalProfitMarginAmount = subtotalBeforeProfitTax * (profitMarginPercent / 100);
-        const estimateSubtotalAmount = subtotalBeforeProfitTax + totalProfitMarginAmount;
-        
-        // Sales tax is only applied to materials + material markup
-        const salesTaxApplicableBase = (totalMaterialCostRaw + (totalMaterialCostRaw * (materialMarkupPercent / 100))) * costRatio;
-        const salesTaxAmount = salesTaxApplicableBase * (salesTaxPercent / 100);
-
-        return estimateSubtotalAmount + salesTaxAmount;
-    };
-
-    projectSettings.originalContractTotal = applyMarkups(originalDirectCost);
-    projectSettings.changeOrderTotal = applyMarkups(changeOrderDirectCost);
-    
-    const grandTotalBeforeAdjustments = projectSettings.originalContractTotal + projectSettings.changeOrderTotal;
-    
+    const materialMarkupAmount = totalMaterialCostRaw * (materialMarkupPercent / 100);
+    const baseCostForOverheadMiscProfit = totalProjectCostDirect + materialMarkupAmount;
+    const totalOverheadCost = baseCostForOverheadMiscProfit * (overheadPercent / 100);
+    const totalMiscCostAmount = baseCostForOverheadMiscProfit * (miscellaneousPercent / 100);
+    const subtotalBeforeProfitTax = baseCostForOverheadMiscProfit + totalMiscCostAmount + totalOverheadCost;
+    const totalProfitMarginAmount = subtotalBeforeProfitTax * (profitMarginPercent / 100);
+    const estimateSubtotalAmount = subtotalBeforeProfitTax + totalProfitMarginAmount;
+    const salesTaxApplicableBase = totalMaterialCostRaw + materialMarkupAmount;
+    const salesTaxAmount = salesTaxApplicableBase * (salesTaxPercent / 100);
     let additionalConsiderationAmount = 0;
     if (projectSettings.additionalConsiderationsType === '%') {
-        additionalConsiderationAmount = grandTotalBeforeAdjustments * (additionalConsiderationsValue / 100);
+        additionalConsiderationAmount = estimateSubtotalAmount * (additionalConsiderationsValue / 100);
     } else {
         additionalConsiderationAmount = additionalConsiderationsValue;
     }
-
-    const subtotalBeforeDiscount = grandTotalBeforeAdjustments + additionalConsiderationAmount;
+    const subtotalBeforeDiscount = estimateSubtotalAmount + salesTaxAmount + additionalConsiderationAmount;
     const discountAmount = subtotalBeforeDiscount * (discountPercent / 100);
     const grandTotal = subtotalBeforeDiscount - discountAmount;
 
     projectSettings.grandTotal = grandTotal;
     projectSettings.discountAmount = discountAmount;
+    projectSettings.salesTaxAmount = salesTaxAmount;
+    projectSettings.totalOverheadCost = totalOverheadCost;
+    projectSettings.materialMarkupAmount = materialMarkupAmount;
+    projectSettings.totalMiscCostAmount = totalMiscCostAmount;
+    projectSettings.estimateSubtotalAmount = estimateSubtotalAmount;
+    projectSettings.totalProfitMarginAmount = totalProfitMarginAmount;
     projectSettings.additionalConsiderationAmount = additionalConsiderationAmount;
 
-    // These totals are still useful for the PDF report and other summaries
-    projectSettings.materialMarkupAmount = totalMaterialCostRaw * (materialMarkupPercent / 100);
-    const baseCostForOverheadMiscProfit = totalProjectCostDirect + projectSettings.materialMarkupAmount;
-    projectSettings.totalOverheadCost = baseCostForOverheadMiscProfit * (overheadPercent / 100);
-    projectSettings.totalMiscCostAmount = baseCostForOverheadMiscProfit * (miscellaneousPercent / 100);
-    const subtotalBeforeProfitTax = baseCostForOverheadMiscProfit + projectSettings.totalMiscCostAmount + projectSettings.totalOverheadCost;
-    projectSettings.totalProfitMarginAmount = subtotalBeforeProfitTax * (profitMarginPercent / 100);
-    projectSettings.estimateSubtotalAmount = subtotalBeforeProfitTax + projectSettings.totalProfitMarginAmount;
-    const salesTaxApplicableBase = totalMaterialCostRaw + projectSettings.materialMarkupAmount;
-    projectSettings.salesTaxAmount = salesTaxApplicableBase * (salesTaxPercent / 100);
 
     const overallLaborHoursSum = Object.values(laborHoursBreakdown).reduce((sum, hours) => sum + hours, 0);
     projectSettings.overallLaborHoursSum = overallLaborHoursSum;
-    projectSettings.laborHoursBreakdown = laborHoursBreakdown;
 
     if (currentAppMode === 'detailed') {
-        SummaryOverview.updateSummaries(projectSettings, isDarkTheme);
+        SummaryOverview.updateSummaries(projectSettings, estimateItems, isDarkTheme);
     }
 }
 
@@ -1198,13 +1019,12 @@ async function handleAIChatSend(isRetry = false) {
 function startDetailedEstimate() {
     currentAppMode = 'detailed';
     projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
-    estimateItems = JSON.parse(JSON.stringify(initialEstimateItems));
     projectSettings.contractorLogo = PERMANENT_DEFAULT_LOGO;
 
     entryPointContainer.classList.add('hidden');
     mainApp.classList.add('hidden');
     quickQuoteApp.classList.add('hidden');
-    loadSetupWizard(1);
+    loadSetupWizard();
 }
 
 function startQuickQuote() {
@@ -1223,8 +1043,12 @@ function startQuickQuote() {
     quickQuoteApp.classList.remove('hidden');
     loadQuickQuoteSummary();
 
-    AppHeader.updateProjectInfo('Quick Quote', 'New Quick Quote', '', 'N/A');
-    AppHeader.updateLogo(PERMANENT_DEFAULT_LOGO);
+    if (window.AppHeader && typeof window.AppHeader.updateProjectInfo === 'function') {
+        window.AppHeader.updateProjectInfo('Quick Quote', 'New Quick Quote', '', 'N/A');
+    }
+    if (window.AppHeader && typeof window.AppHeader.updateLogo === 'function') {
+        window.AppHeader.updateLogo(PERMANENT_DEFAULT_LOGO);
+    }
 
     estimateItems = [];
 }
@@ -1264,44 +1088,30 @@ function setupInitialEventListeners() {
     if (detailedAddItemBtn) {
         detailedAddItemBtn.addEventListener('click', addItem);
     }
-    
-    // ✨ MODIFIED: Add listener for the new toggle button
-    const toggleCollapseBtn = document.getElementById('toggleCollapseBtn');
-    if (toggleCollapseBtn) {
-        toggleCollapseBtn.addEventListener('click', toggleAllItems);
-    }
 
     setupAIChatListeners();
 
-    // ✨ REFACTORED: Event listener now handles labor-specific actions
     if (estimateItemsContainer) {
+        // Event delegation for all interactions within the line items container
         estimateItemsContainer.addEventListener('click', (event) => {
             const row = event.target.closest('.line-item-row');
             if (!row) return;
 
+            // Handle button clicks (delete, duplicate)
             const button = event.target.closest('button[data-action]');
             if (button) {
                 const itemId = parseInt(row.dataset.id);
                 const action = button.dataset.action;
                 if (action === 'delete') deleteItem(itemId);
                 if (action === 'duplicate') duplicateItem(itemId);
-                if (action === 'add-labor') addLaborEntry(itemId);
-
-                // Handle deleting a specific labor entry
-                if (action === 'delete-labor') {
-                    const laborRow = button.closest('.labor-entry-row');
-                    if (laborRow) {
-                        deleteLaborEntry(itemId, laborRow.dataset.laborId);
-                    }
-                }
-                return;
+                return; // Stop further processing to prevent toggle
             }
 
+            // Handle header click to toggle accordion
             if (event.target.closest('.line-item-header')) {
                 const details = row.querySelector('.line-item-details');
                 row.classList.toggle('expanded');
                 details.classList.toggle('expanded');
-                updateCollapseIcon(); // ✨ ADDED: Update icon on individual toggle
             }
         });
 
@@ -1314,17 +1124,7 @@ function setupInitialEventListeners() {
             const field = target.dataset.field;
             
             if (itemId && field) {
-                // Check if the change is within a labor entry
-                const laborRow = target.closest('.labor-entry-row');
-                if (laborRow) {
-                    const laborId = laborRow.dataset.laborId;
-                    const fieldValue = target.type === 'checkbox' ? target.checked : target.value;
-                    updateLaborEntry(itemId, laborId, field, fieldValue);
-                } else {
-                    // It's a non-labor field for the main item
-                    const fieldValue = target.type === 'checkbox' ? target.checked : target.value;
-                    updateItem(itemId, field, fieldValue);
-                }
+                updateItem(itemId, field, target.value);
             }
         });
     }
