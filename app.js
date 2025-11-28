@@ -14,6 +14,7 @@ let isAuthenticated = false;
 
 // Define permanent logo path
 const PERMANENT_DEFAULT_LOGO = "Assets/Proquotelyasset-25.png";
+const PERMANENT_LIGHT_LOGO = "Assets/ProquotelyLight-25.png"; // Using the light icon/logo for the entry screen
 
 // --- Auth functions for testing ---
 function showLoginModal() {
@@ -157,7 +158,6 @@ async function loadSetupWizard(startStep = 1) {
         placeholder.innerHTML = html;
         placeholder.classList.remove('hidden');
 
-        // NOTE: The wizard now has 4 steps, but we initiate at step 1 or 4 (reconfigure)
         SetupWizard.init({
             projectSettings: projectSettings,
             estimateItems: estimateItems,
@@ -187,6 +187,9 @@ async function loadSavedProjects() {
         const html = await htmlResponse.text();
         document.getElementById('savedProjectsPlaceholder').innerHTML = html;
         
+        // ✨ FIX: This line makes the saved projects container visible
+        document.getElementById('savedProjectsContainer').classList.remove('hidden');
+
         SavedProjects.init({
             onGoToCalculator: showMainApp,
             onLoadProject: handleProjectLoad, 
@@ -210,6 +213,11 @@ function handleProjectLoad(loadedData) {
 
     projectSettings = JSON.parse(JSON.stringify(loadedData.settings));
     estimateItems = JSON.parse(JSON.stringify(loadedData.items));
+
+    // Clear any generated scope tasks when loading a saved project, as they aren't line items
+    if (projectSettings.acceptedScopeTasks) {
+        delete projectSettings.acceptedScopeTasks;
+    }
 
     showMainApp(); 
 }
@@ -253,9 +261,9 @@ function formatHours(hours) {
     return parseFloat(hours).toFixed(2);
 }
 
-// ✨ FIX: Updated initialProjectSettings to start clean, and ensure activeTrades has "General"
+// ✨ FIX: Changed projectName and activeTrades initialization to empty/cleared states.
 const initialProjectSettings = JSON.parse(JSON.stringify({
-    projectName: "New Project", // FIX 1: Set a clear default name
+    projectName: "", // Cleared default project name
     clientName: "",
     projectAddress: "",
     projectCity: "",
@@ -293,17 +301,15 @@ const initialProjectSettings = JSON.parse(JSON.stringify({
         "Masonry": { "Project Manager": 128, "Superintendent": 102, "General Foreman": 93, "Foreman": 88, "Journeyman": 76, "Apprentice": 51 },
         "Landscaping": { "Project Manager": 100, "Superintendent": 85, "General Foreman": 75, "Foreman": 70, "Journeyman": 60, "Apprentice": 40 }
     },
-    activeTrades: ["General"], // FIX 2: Ensure the General trade is pre-selected on new projects
+    activeTrades: [], // Cleared default active trades
 }));
 
-// The initial item needs to use a default trade that exists, which is now "General"
 const initialEstimateItems = JSON.parse(JSON.stringify([
     {
         id: Date.now(),
         taskName: 'First Task',
         description: 'Detail your first project task here.',
         laborEntries: [
-            // Ensure this default entry uses the default active trade
             { id: `lab_${Date.now()}`, trade: 'General', rateRole: 'Journeyman', hours: 0, otDtMultiplier: 1.0 }
         ],
         materialQuantity: 0,
@@ -325,7 +331,7 @@ const entryPointContainer = document.getElementById('entryPointContainer');
 const mainApp = document.getElementById('mainApp');
 const quickQuoteApp = document.getElementById('quickQuoteApp');
 const appHeaderContainer = document.getElementById('appHeaderContainer');
-const estimateItemsContainer = document.getElementById('estimateItemsContainer');
+const estimateItemsContainer = document.getElementById('estimateLineItemsContainer'); // Changed to the main container ID
 const saveProjectModal = document.getElementById('saveProjectModal');
 const saveProjectNameInput = document.getElementById('saveProjectName');
 const saveCustomerNameInput = document.getElementById('saveCustomerName');
@@ -370,9 +376,10 @@ function toggleTheme() {
 function handleWizardCompletion(updatedSettings) {
     projectSettings = { ...updatedSettings };
 
-    if (currentAppMode === 'detailed' && !projectSettings.contractorLogo) {
+    // Use the default logo only if the user hasn't uploaded one
+    if (!projectSettings.contractorLogo) {
         projectSettings.contractorLogo = PERMANENT_DEFAULT_LOGO;
-    }
+    } 
 
     const setupWizardPlaceholder = document.getElementById('setupWizardPlaceholder');
     setupWizardPlaceholder.classList.add('hidden');
@@ -401,17 +408,10 @@ function handleWizardCompletion(updatedSettings) {
 
     populateDefaultTradeSelector();
     
-    // ✨ MODIFIED: Update the first labor entry of the first item
-    if (estimateItems.length > 0 && estimateItems[0].laborEntries.length > 0) {
-        const firstLaborEntry = estimateItems[0].laborEntries[0];
-        const defaultTrade = projectSettings.activeTrades.length > 0 ? projectSettings.activeTrades[0] : "General";
-        firstLaborEntry.trade = defaultTrade;
-        const availableRoles = Object.keys(projectSettings.allTradeLaborRates[firstLaborEntry.trade] || {});
-        firstLaborEntry.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
-    }
+    // The wizard's startEstimating function already populated/cleared estimateItems
+    // based on the accepted scope tasks. We only need to render and calculate.
 
     renderItems(); // This calls calculateTotals which calls SummaryOverview.updateSummaries
-
 }
 
 function showEntryPoint() {
@@ -420,6 +420,11 @@ function showEntryPoint() {
     // Reset project data when returning to the entry point
     projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
     estimateItems = JSON.parse(JSON.stringify(initialEstimateItems));
+    
+    // Clear any generated scope tasks from the settings
+    if (projectSettings.acceptedScopeTasks) {
+        delete projectSettings.acceptedScopeTasks;
+    }
 
     appHeaderContainer.classList.add('hidden');
     mainApp.classList.add('hidden');
@@ -428,6 +433,13 @@ function showEntryPoint() {
     document.getElementById('savedProjectsPlaceholder').classList.add('hidden');
 
     entryPointContainer.classList.remove('hidden');
+
+    // Use the light-colored logo on the entry point screen if possible
+    const heroLogo = document.querySelector('.entry-point-hero-logo');
+    if (heroLogo) {
+        heroLogo.src = PERMANENT_LIGHT_LOGO;
+    }
+
 
     AppHeader.updateProjectInfo('Project Type', 'Project Name', 'Client Name', 'Location');
     AppHeader.updateLogo('');
@@ -447,6 +459,8 @@ function reconfigureApp() {
 
 /**
  * NEW: Handles reconfiguring a detailed project by going back to the wizard.
+ * ✨ FIX: Reconfiguring should jump back to Step 1 to allow full project changes, 
+ * including trades, which affect labor rates and scope analysis.
  */
 async function reconfigureDetailedProject() {
     // Hide main app views
@@ -454,9 +468,8 @@ async function reconfigureDetailedProject() {
     quickQuoteApp.classList.add('hidden');
     appHeaderContainer.classList.add('hidden');
 
-    // Load the wizard and jump to the last step (Step 4, which is Financial Settings)
-    // NOTE: If you were loading the labor rates page, you would use 2.
-    await loadSetupWizard(4);
+    // Load the wizard and jump to Step 1
+    await loadSetupWizard(1);
 }
 
 function showSetupWizard() {
@@ -589,8 +602,7 @@ function addItem() {
             { id: `lab_${Date.now()}`, trade: defaultTradeForNewItem, rateRole: defaultRoleForNewItem, hours: 0, otDtMultiplier: 1.0 }
         ],
         materialQuantity: 0, materialUnitCost: 0, equipmentRentalCost: 0,
-        subcontractorCostLineItem: 0, miscLineItem: 0,
-        isChangeOrder: false
+        subcontractorCostLineItem: 0, miscLineItem: 0, isChangeOrder: false
     };
     estimateItems.push(newItem);
     renderItems();
@@ -702,7 +714,9 @@ function deleteLaborEntry(itemId, laborId) {
  * ✨ NEW: Toggles all line items between expanded and collapsed states.
  */
 function toggleAllItems() {
-    if (!estimateItemsContainer) return;
+    // Check if the estimate line items container is visible
+    const lineItemsContainer = document.getElementById('estimateLineItemsContainer');
+    if (!lineItemsContainer || lineItemsContainer.classList.contains('hidden')) return;
     
     // Check if any item is currently expanded
     const isAnyExpanded = !!document.querySelector('.line-item-row.expanded');
@@ -742,6 +756,7 @@ function updateCollapseIcon() {
 
 // ✨ REFACTORED: renderItems now handles the new laborEntries array and elegant UI
 function renderItems() {
+    const estimateItemsContainer = document.getElementById('estimateItemsContainer');
     if(!estimateItemsContainer) return;
     
     const expandedIds = new Set();
@@ -1058,6 +1073,7 @@ function populateDefaultTradeSelector() {
         defaultTradeSelectorElem.disabled = true;
         currentlySelectedTradeForLineItems = "";
     } else {
+        defaultTradeSelectorElem.disabled = false;
         projectSettings.activeTrades.forEach(trade => {
             const option = document.createElement('option');
             option.value = trade;
@@ -1137,13 +1153,7 @@ async function handleAIChatSend(isRetry = false) {
     aiChatHistory.appendChild(loadingBubble);
     aiChatHistory.scrollTop = aiChatHistory.scrollHeight;
 
-    const apiKey = ""; // API Key placeholder
-
-    if (apiKey === "YOUR_API_KEY_HERE") {
-        aiChatHistory.removeChild(loadingBubble);
-        addMessageToChat("Configuration error: Please add your Gemini API key to the app.js file.", 'ai');
-        return;
-    }
+    const apiKey = ""; // API Key is not needed for gemini-2.5-flash-preview-09-2025
 
     const prompt = `
         You are an expert construction cost estimator. A user is working on an estimate for a
@@ -1152,91 +1162,85 @@ async function handleAIChatSend(isRetry = false) {
         User's question: "${userMessage}"
     `;
 
-    try {
-        // Implement exponential backoff for retries
-        let attempt = 0;
-        const maxAttempts = 3;
-        let result;
+    // Implement exponential backoff for the API call
+    const MAX_RETRIES = 5;
+    for (let i = 0; i < MAX_RETRIES; i++) {
+        try {
+            const payload = {
+                contents: [{ role: "user", parts: [{ text: prompt }] }],
+                model: 'gemini-2.5-flash-preview-09-2025' // Use the correct model
+            };
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
 
-        while (attempt < maxAttempts) {
-            try {
-                const payload = {
-                    contents: [{ role: "user", parts: [{ text: prompt }] }],
-                    model: "gemini-2.5-flash-preview-09-2025"
-                };
-                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
 
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(payload)
-                });
+            const result = await response.json();
 
-                result = await response.json();
-
-                if (response.ok && !result.error) {
-                    break; // Success
-                } else if (result.error && (result.error.message.includes("overloaded") || result.error.status === 429)) {
-                    // Retry on rate limit or overload
-                    if (attempt < maxAttempts - 1) {
-                        const delay = Math.pow(2, attempt) * 1000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                        attempt++;
-                        continue; 
-                    }
-                }
-                break; // Break on non-retryable error
-            } catch (networkError) {
-                 if (attempt < maxAttempts - 1) {
-                    const delay = Math.pow(2, attempt) * 1000;
+            if (result.error) {
+                if (result.error.message.includes("overloaded") && i < MAX_RETRIES - 1) {
+                    const delay = Math.pow(2, i) * 1000;
                     await new Promise(resolve => setTimeout(resolve, delay));
-                    attempt++;
-                    continue; 
+                    continue; // Retry
+                } else {
+                    aiChatHistory.removeChild(loadingBubble);
+                    console.error("Gemini API Error:", result.error);
+                    let errorMessage = `Error from API: ${result.error.message}`;
+                    if (result.error.message.includes("overloaded")) {
+                        errorMessage += ` <button onclick="retryLastAIChatRequest()" class="btn btn-primary btn-sm" style="padding: 2px 8px; font-size: 12px; margin-left: 8px;">Retry</button>`;
+                        addMessageToChat(errorMessage, 'ai', true);
+                    } else {
+                        addMessageToChat(errorMessage, 'ai');
+                    }
+                    return;
                 }
-                throw networkError;
             }
-        }
 
-        aiChatHistory.removeChild(loadingBubble);
-
-        if (result && result.error) {
-            console.error("Gemini API Error:", result.error);
-            let errorMessage = `Error from API: ${result.error.message}`;
-            if (result.error.message.includes("overloaded")) {
-                errorMessage += ` <button onclick="retryLastAIChatRequest()" class="btn btn-primary btn-sm" style="padding: 2px 8px; font-size: 12px; margin-left: 8px;">Retry</button>`;
-                addMessageToChat(errorMessage, 'ai', true);
-            } else {
-                addMessageToChat(errorMessage, 'ai');
-            }
-            return;
-        }
-
-        if (result && result.candidates && result.candidates.length > 0 &&
-            result.candidates[0].content && result.candidates[0].content.parts &&
-            result.candidates[0].content.parts.length > 0) {
-            const aiMessage = result.candidates[0].content.parts[0].text;
-            addMessageToChat(aiMessage, 'ai');
-            chatHistory.push({ role: "model", parts: [{ text: aiMessage }] });
-        } else {
-            addMessageToChat('Sorry, I could not get a response. The response was empty.', 'ai');
-        }
-    } catch (error) {
-        console.error("Error calling Gemini API:", error);
-        if (loadingBubble && loadingBubble.parentNode) {
             aiChatHistory.removeChild(loadingBubble);
+
+            if (result.candidates && result.candidates.length > 0 &&
+                result.candidates[0].content && result.candidates[0].content.parts &&
+                result.candidates[0].content.parts.length > 0) {
+                const aiMessage = result.candidates[0].content.parts[0].text;
+                addMessageToChat(aiMessage, 'ai');
+                chatHistory.push({ role: "model", parts: [{ text: aiMessage }] });
+            } else {
+                addMessageToChat('Sorry, I could not get a response. The response was empty.', 'ai');
+            }
+            return; // Success, exit the loop
+        } catch (error) {
+            if (i < MAX_RETRIES - 1) {
+                const delay = Math.pow(2, i) * 1000;
+                await new Promise(resolve => setTimeout(resolve, delay));
+                continue; // Retry on network error
+            } else {
+                aiChatHistory.removeChild(loadingBubble);
+                console.error("Error calling Gemini API:", error);
+                addMessageToChat('Sorry, there was a network error connecting to the AI service.', 'ai');
+                return;
+            }
         }
-        addMessageToChat('Sorry, there was a network error connecting to the AI service.', 'ai');
     }
 }
 
-
 function startDetailedEstimate() {
     currentAppMode = 'detailed';
-    projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
+    // When starting a new estimate, we use the initial (now cleared) settings
+    projectSettings = JSON.parse(JSON.stringify(initialProjectSettings)); 
     estimateItems = JSON.parse(JSON.stringify(initialEstimateItems));
-    projectSettings.contractorLogo = PERMANENT_DEFAULT_LOGO;
+    
+    // Default the activeTrades array to include General for a new detailed project
+    // This is necessary because loadSetupWizard calls updateSelectedTradesDisplay, 
+    // which relies on activeTrades to determine if it should show the prompt or tags.
+    // If we rely on the user to select, validation in step 1 will catch it.
+    // However, if we start with [], we break step 2 logic immediately if the user navigates there.
+    // FIX: Set activeTrades to ["General"] only temporarily to maintain the structure for the first empty estimate item.
+    projectSettings.activeTrades = ["General"]; 
 
     entryPointContainer.classList.add('hidden');
     mainApp.classList.add('hidden');
@@ -1247,7 +1251,8 @@ function startDetailedEstimate() {
 function startQuickQuote() {
     currentAppMode = 'quickQuote';
     projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
-    projectSettings.contractorLogo = PERMANENT_DEFAULT_LOGO;
+    // Set the default logo here, as Quick Quote skips the full wizard.
+    projectSettings.contractorLogo = PERMANENT_DEFAULT_LOGO; 
     projectSettings.projectName = "New Quick Quote";
     projectSettings.projectType = "Quick Quote";
     projectSettings.clientName = "";
@@ -1313,10 +1318,11 @@ function setupInitialEventListeners() {
     // ✨ REFACTORED: Event listener now handles labor-specific actions
     if (estimateItemsContainer) {
         estimateItemsContainer.addEventListener('click', (event) => {
-            const row = event.target.closest('.line-item-row');
+            const target = event.target;
+            const row = target.closest('.line-item-row');
             if (!row) return;
 
-            const button = event.target.closest('button[data-action]');
+            const button = target.closest('button[data-action]');
             if (button) {
                 const itemId = parseInt(row.dataset.id);
                 const action = button.dataset.action;
@@ -1334,7 +1340,7 @@ function setupInitialEventListeners() {
                 return;
             }
 
-            if (event.target.closest('.line-item-header')) {
+            if (target.closest('.line-item-header')) {
                 const details = row.querySelector('.line-item-details');
                 row.classList.toggle('expanded');
                 details.classList.toggle('expanded');
@@ -1375,6 +1381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentAppMode === 'detailed') {
         renderItems();
     }
+    showEntryPoint(); // Ensure the entry point is shown initially
 });
 
 function renderMessageBox(message, onConfirmCallback = null, isConfirm = false) {
