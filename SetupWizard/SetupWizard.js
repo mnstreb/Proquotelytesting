@@ -215,6 +215,402 @@ export function init(config) {
     attachEventListeners();
 }
 
+// --- Logo Handling Functions ---
+function handleLogoInputChange(event) {
+    const file = event.target.files[0];
+    if (file) {
+        processLogoFile(file);
+    }
+}
+
+function handleLogoDrop(event) {
+    event.preventDefault();
+    logoUploadArea.classList.remove('drag-over');
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+        processLogoFile(file);
+    } else if (file) {
+        renderMessageBoxCallback('Please upload a valid image file (PNG, JPG) for the logo.');
+    }
+}
+
+function processLogoFile(file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        projectSettings.contractorLogo = e.target.result;
+        loadSavedLogo();
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearLogo() {
+    projectSettings.contractorLogo = '';
+    loadSavedLogo();
+    // Clear the input element as well
+    if (logoUploadInput) logoUploadInput.value = '';
+}
+
+// --- Trade Selection Logic ---
+
+function showTradeDropdown() {
+    if (!tradesDropdown) return;
+    // Set position right under the input field
+    const rect = tradeSearchInput.getBoundingClientRect();
+    tradesDropdown.style.top = `${rect.bottom + 5}px`;
+    tradesDropdown.style.left = `${rect.left}px`;
+    tradesDropdown.style.width = `${rect.width}px`;
+    tradesDropdown.classList.remove('hidden');
+    updateGuidance('tradesInvolved');
+}
+
+function hideTradeDropdown() {
+    // Delay hiding to allow clicks on dropdown items to register
+    setTimeout(() => {
+        if (tradesDropdown && !tradesDropdown.contains(document.activeElement)) {
+            tradesDropdown.classList.add('hidden');
+            updateGuidance('default');
+        }
+    }, 100);
+}
+
+function toggleTradeDropdown(event) {
+    // If the click happened on the remove button, do not toggle the dropdown
+    if (event.target.classList.contains('remove-tag')) {
+        return;
+    }
+    if (tradesDropdown.classList.contains('hidden')) {
+        showTradeDropdown();
+    } else {
+        hideTradeDropdown();
+    }
+}
+
+function handleTradeSelection(checkbox) {
+    const trade = checkbox.value;
+    if (checkbox.checked) {
+        if (!projectSettings.activeTrades.includes(trade)) {
+            projectSettings.activeTrades.push(trade);
+        }
+    } else {
+        projectSettings.activeTrades = projectSettings.activeTrades.filter(t => t !== trade);
+        // Optional: Remove custom skills for this trade if it was removed
+        if (projectSettings.allTradeLaborRates[trade]) {
+             // Future improvement: reset to default or delete rates if trade is removed
+        }
+    }
+    updateSelectedTradesDisplay();
+    // Keep the dropdown visible after interaction
+    if (tradesDropdown.classList.contains('hidden')) {
+        showTradeDropdown();
+    }
+}
+
+// --- Labor Rate Logic (Step 2) ---
+
+function populateWizardStep2LaborRates() {
+    if (!dynamicLaborRateInputs) return;
+    dynamicLaborRateInputs.innerHTML = '';
+
+    projectSettings.activeTrades.forEach(trade => {
+        const tradeGroup = document.createElement('div');
+        tradeGroup.className = 'trade-labor-rates-group';
+        tradeGroup.innerHTML = `<h3>${trade} Labor Rates</h3>`;
+
+        const rates = projectSettings.allTradeLaborRates[trade] || {};
+        const roles = Object.keys(rates);
+
+        roles.forEach(role => {
+            const isStandard = ["Project Manager", "Superintendent", "General Foreman", "Foreman", "Journeyman", "Apprentice"].includes(role);
+            
+            const rate = rates[role] || 0;
+            const row = document.createElement('div');
+            row.className = 'skill-level-row';
+            row.dataset.role = role;
+            
+            row.innerHTML = `
+                <div class="skill-name-display">${role}</div>
+                <div class="rate-input-group">
+                    <span class="rate-label">Rate ($/hr):</span>
+                    <input type="number" data-trade="${trade}" data-role="${role}" class="input-field rate-input" value="${rate}" step="1" min="0">
+                    ${!isStandard ? `<button class="remove-skill-btn" data-trade="${trade}" data-role="${role}" title="Remove Skill">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>` : ''}
+                </div>
+            `;
+            tradeGroup.appendChild(row);
+        });
+
+        dynamicLaborRateInputs.appendChild(tradeGroup);
+    });
+}
+
+function toggleAdvancedRates() {
+    isAdvancedModeActive = !isAdvancedModeActive;
+    if (advancedSkillLevelControls) advancedSkillLevelControls.classList.toggle('hidden', !isAdvancedModeActive);
+    if (advancedLink) advancedLink.textContent = isAdvancedModeActive ? 'Hide Advanced Skill Options' : 'Show Advanced Skill Options';
+}
+
+function addSkillLevelFromAdvanced() {
+    const newSkillTitle = newSkillTitleInput.value.trim();
+    const newSkillRate = parseFloat(newSkillRateInput.value);
+
+    if (!newSkillTitle) {
+        renderMessageBoxCallback("Please enter a title for the new skill level.");
+        return;
+    }
+    if (isNaN(newSkillRate) || newSkillRate < 0) {
+        renderMessageBoxCallback("Please enter a valid, non-negative hourly rate.");
+        return;
+    }
+
+    // Check for duplicates across all trades
+    const isDuplicate = projectSettings.activeTrades.some(trade => 
+        projectSettings.allTradeLaborRates[trade] && projectSettings.allTradeLaborRates[trade].hasOwnProperty(newSkillTitle)
+    );
+
+    if (isDuplicate) {
+        renderMessageBoxCallback(`The skill title "${newSkillTitle}" already exists.`);
+        return;
+    }
+
+    // Add skill to all active trades
+    projectSettings.activeTrades.forEach(trade => {
+        if (projectSettings.allTradeLaborRates[trade]) {
+            projectSettings.allTradeLaborRates[trade][newSkillTitle] = newSkillRate;
+        }
+    });
+
+    // Reset inputs and re-render Step 2
+    newSkillTitleInput.value = '';
+    newSkillRateInput.value = '0';
+    populateWizardStep2LaborRates();
+    renderMessageBoxCallback(`Skill level "${newSkillTitle}" added to all active trades.`);
+}
+
+function updateLaborRate(trade, role, value) {
+    const rate = parseFloat(value);
+    if (!isNaN(rate) && rate >= 0) {
+        projectSettings.allTradeLaborRates[trade][role] = rate;
+    } else {
+        // Prevent saving invalid data, but allow user to keep typing
+    }
+}
+
+function confirmRemoveSkillLevel(trade, role) {
+    renderMessageBoxCallback(`Are you sure you want to remove the skill "${role}" from the "${trade}" trade?`, () => {
+        delete projectSettings.allTradeLaborRates[trade][role];
+        populateWizardStep2LaborRates();
+        if(closeMessageBoxCallback) closeMessageBoxCallback();
+    }, true);
+}
+
+
+// --- Project Info Logic (Step 1) ---
+
+function populateWizardInputs() {
+    // Basic Info
+    // FIX 1: Only pre-fill Project Name and Client Name if the value is explicitly set (e.g., from a loaded project)
+    if (projectNameInput) projectNameInput.value = projectSettings.projectName && projectSettings.projectName !== "New Project" ? projectSettings.projectName : '';
+    if (clientNameInput) clientNameInput.value = projectSettings.clientName || '';
+    
+    // Project Type and State always have a default value from initialProjectSettings
+    if (projectTypeSelect) projectTypeSelect.value = projectSettings.projectType || 'Commercial';
+    if (projectStateSelect) projectStateSelect.value = projectSettings.projectState || 'CA';
+    
+    // Advanced Details
+    const projectAddressInput = document.getElementById('projectAddress');
+    if (projectAddressInput) projectAddressInput.value = projectSettings.projectAddress || '';
+    const projectCityInput = document.getElementById('projectCity');
+    if (projectCityInput) projectCityInput.value = projectSettings.projectCity || '';
+    const projectZipInput = document.getElementById('projectZip');
+    if (projectZipInput) projectZipInput.value = projectSettings.projectZip || '';
+    const startDateInput = document.getElementById('startDate');
+    if (startDateInput) startDateInput.value = projectSettings.startDate || '';
+    const endDateInput = document.getElementById('endDate');
+    if (endDateInput) endDateInput.value = projectSettings.endDate || '';
+    const projectIDInput = document.getElementById('projectID');
+    if (projectIDInput) projectIDInput.value = projectSettings.projectID || '';
+    const projectDescriptionTextarea = document.getElementById('projectDescription');
+    if (projectDescriptionTextarea) projectDescriptionTextarea.value = projectSettings.projectDescription || '';
+
+    // Show/Hide Advanced Section based on data presence
+    const hasAdvancedData = projectSettings.projectAddress || projectSettings.startDate || projectSettings.projectID;
+    if (advancedDetailsSection) advancedDetailsSection.classList.toggle('hidden', !hasAdvancedData);
+    if (showAdvancedDetailsLink) showAdvancedDetailsLink.textContent = hasAdvancedData ? 'Hide Advanced Details' : 'Show Advanced Details';
+}
+
+function toggleAdvancedDetails(event) {
+    event.preventDefault();
+    const isHidden = advancedDetailsSection.classList.contains('hidden');
+    advancedDetailsSection.classList.toggle('hidden', !isHidden);
+    showAdvancedDetailsLink.textContent = isHidden ? 'Hide Advanced Details' : 'Show Advanced Details';
+}
+
+
+// --- Financial Settings Logic (Step 4) ---
+
+function populateWizardStep4Settings() {
+    if (profitMarginInput) profitMarginInput.value = projectSettings.profitMargin || 0;
+    if (salesTaxInput) salesTaxInput.value = projectSettings.salesTax || 0;
+    if (miscellaneousInput) miscellaneousInput.value = projectSettings.miscellaneous || 0;
+    if (overheadInput) overheadInput.value = projectSettings.overhead || 0;
+    if (materialMarkupInput) materialMarkupInput.value = projectSettings.materialMarkup || 0;
+    if (additionalConsiderationsValueInput) additionalConsiderationsValueInput.value = projectSettings.additionalConsiderationsValue || 0;
+    
+    if (toggleAdditionalConsiderationsBtn) {
+        toggleAdditionalConsiderationsBtn.textContent = projectSettings.additionalConsiderationsType === '%' ? '%' : '$';
+    }
+}
+
+function toggleAdditionalConsiderationsType() {
+    const currentType = toggleAdditionalConsiderationsBtn.textContent;
+    const newType = currentType === '%' ? '$' : '%';
+    toggleAdditionalConsiderationsBtn.textContent = newType;
+    projectSettings.additionalConsiderationsType = newType;
+}
+
+// --- Smart Scope Builder Logic (Step 3) ---
+
+function populateWizardStep3ScopeBuilder() {
+    renderUploadedFiles();
+    updateUploadStatus(); // Updates button state and status text
+    
+    // Check if we have existing scope data (e.g., reconfiguring)
+    if (projectSettings.scopeNarrative) {
+        isScopeGenerated = true;
+        renderMockScopeData(false); // Render existing data
+    }
+    
+    if (scopeOutputPanel) scopeOutputPanel.classList.toggle('hidden', !isScopeGenerated);
+    
+    if (optionalCitationsToggle) optionalCitationsToggle.checked = projectSettings.includeCitations || false;
+    if (optionalFollowupToggle) optionalFollowupToggle.checked = projectSettings.allowFollowup || false;
+}
+
+// ✨ FIX: startAnalysis implementation using sequential promise chain
+async function startAnalysis() {
+    overwriteConfirmationModal.classList.add('hidden');
+    isProcessing = true;
+    isScopeGenerated = false;
+    if (analyzeDocumentsBtn) {
+         analyzeDocumentsBtn.textContent = "Processing...";
+         analyzeDocumentsBtn.className = "btn btn-blue-solid w-full opacity-70 cursor-wait";
+    }
+
+    if (scopeOutputPanel) scopeOutputPanel.classList.add('hidden');
+    if (processingProgressContainer) processingProgressContainer.classList.remove('hidden');
+    updateGuidance('analyze');
+    
+    const stages = [
+        "Extracting content from documents...",
+        "Reviewing trade scope requirements...",
+        "Generating draft narrative and items...",
+        "Finalizing scope structure..."
+    ];
+    
+    let success = true;
+
+    for (let i = 0; i < stages.length; i++) {
+        if (progressMessage) progressMessage.textContent = stages[i];
+        
+        // Use a Promise-based setTimeout for sequential simulation
+        try {
+            await new Promise(resolve => setTimeout(resolve, 3000 + (Math.random() * 2000))); // 3-5 seconds delay per stage
+        } catch (e) {
+            console.error("Analysis interrupted:", e);
+            success = false;
+            break;
+        }
+    }
+    
+    // Simulate overall failure after stages are complete
+    if (success) {
+        success = Math.random() < 0.9; 
+    }
+    
+    finishAnalysis(success);
+}
+
+function finishAnalysis(success) {
+    isProcessing = false;
+    if (analyzeDocumentsBtn) {
+        analyzeDocumentsBtn.disabled = false;
+    }
+    if (processingProgressContainer) processingProgressContainer.classList.add('hidden');
+    
+    if (success) {
+        // MOCK data generation
+        isScopeGenerated = true;
+        if (analyzeDocumentsBtn) {
+            analyzeDocumentsBtn.textContent = "Rerun Analysis";
+            analyzeDocumentsBtn.className = "btn btn-blue-solid w-full";
+        }
+        if (scopeOutputPanel) scopeOutputPanel.classList.remove('hidden');
+        renderMockScopeData();
+        updateGuidance('scopeOutput');
+    } else {
+        // Error Handling
+        renderMessageBoxCallback("Something went wrong during analysis. Please check your document format and try again.");
+        if (analyzeDocumentsBtn) {
+            analyzeDocumentsBtn.textContent = "Analyze Documents & Generate Scope";
+            analyzeDocumentsBtn.className = "btn btn-blue-solid w-full";
+        }
+        isScopeGenerated = false;
+    }
+}
+
+
+function renderMockScopeData(generateNewData = true) {
+    if (generateNewData) {
+        // MOCK: Generate new structured task data
+        generatedScopeTasks = [
+            { id: 1, description: "Install 100A main service panel per plan 3/A-4.", trade: "Electrical", category: "Labor", accepted: true },
+            { id: 2, description: "Rough-in supply and waste lines for 3 fixtures.", trade: "Plumbing", category: "Labor", accepted: true },
+            { id: 3, description: "Supply and install 4-ton HVAC unit (Citation: Spec 11.3)", trade: "HVAC", category: "Material", accepted: true },
+            { id: 4, description: "Upgrade all existing light fixtures to LED.", trade: "Electrical", category: "Labor", accepted: false },
+            { id: 5, description: "Pour 20 yards of structural concrete slab.", trade: "Concrete", category: "Subcontractor", accepted: true },
+            { id: 6, description: "Paint all interior surfaces (two coats).", trade: "Painting", category: "Labor", accepted: true }
+        ].filter(task => projectSettings.activeTrades.includes(task.trade)); // Filter tasks by active trades
+
+        // MOCK: Fill text areas with initial generated content (or persistent content)
+        projectSettings.scopeNarrative = "The scope of work generated from the documents is comprehensive, covering all selected trades and adheres to a neutral professional tone.";
+        projectSettings.scopeInclusions = "- All materials and labor required for installation.\n- Standard 1-year warranty on workmanship.";
+        projectSettings.scopeExclusions = "- Permitting fees are excluded.\n- Hazardous material abatement is excluded from this scope.";
+    }
+
+    if (scopeNarrativeTextarea) scopeNarrativeTextarea.value = projectSettings.scopeNarrative;
+    if (scopeInclusionsTextarea) scopeInclusionsTextarea.value = projectSettings.scopeInclusions;
+    if (scopeExclusionsTextarea) scopeExclusionsTextarea.value = projectSettings.scopeExclusions;
+
+    // RENDER: Render structured task data
+    if (!taskLineItemsContainer) return;
+    taskLineItemsContainer.innerHTML = ''; // Clear previous tasks
+    
+    if (generatedScopeTasks.length === 0) {
+         taskLineItemsContainer.innerHTML = `<p class="p-3 text-sm text-gray-500">No tasks remaining for selected trades.</p>`;
+         return;
+    }
+
+    generatedScopeTasks.forEach(task => {
+        const row = document.createElement('div');
+        row.className = "line-item-row flex items-center gap-4 p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150";
+        
+        row.innerHTML = `
+            <input type="checkbox" id="task-${task.id}" data-task-id="${task.id}" ${task.accepted ? 'checked' : ''} class="task-checkbox">
+            <label for="task-${task.id}" class="flex-grow text-sm cursor-pointer">${task.description} <span class="text-xs text-blue-500">(${task.trade})</span></label>
+            <select class="input-field w-32 text-xs" data-task-id="${task.id}">
+                <option value="Labor" ${task.category === 'Labor' ? 'selected' : ''}>Labor</option>
+                <option value="Material" ${task.category === 'Material' ? 'selected' : ''}>Material</option>
+                <option value="Subcontractor" ${task.category === 'Subcontractor' ? 'selected' : ''}>Subcontractor</option>
+            </select>
+            <button class="btn btn-red-outline btn-sm py-1 px-3">Reject</button>
+        `;
+        taskLineItemsContainer.appendChild(row);
+    });
+    
+}
+
+
 // --- Wizard Navigation Logic ---
 export function showStep(stepNumber) {
     wizardSteps.forEach((stepDiv, index) => {
@@ -281,6 +677,7 @@ function startEstimating() {
     projectSettings.overhead = parseFloat(overheadInput.value) || 0;
     projectSettings.materialMarkup = parseFloat(materialMarkupInput.value) || 0;
     projectSettings.additionalConsiderationsValue = parseFloat(additionalConsiderationsValueInput.value) || 0;
+    projectSettings.additionalConsiderationsType = toggleAdditionalConsiderationsBtn.textContent === '%' ? '%' : '$';
     
     // Save generated scope data from Step 3
     projectSettings.scopeNarrative = scopeNarrativeTextarea.value;
@@ -290,8 +687,71 @@ function startEstimating() {
     projectSettings.allowFollowup = optionalFollowupToggle.checked;
 
     // ** LOGIC TO INSERT SCOPE LINES INTO estimateItems **
-    projectSettings.acceptedScopeTasks = generatedScopeTasks.filter(t => t.accepted);
-    
+    const acceptedScopeTasks = generatedScopeTasks.filter(t => t.accepted);
+    projectSettings.acceptedScopeTasks = acceptedScopeTasks;
+
+    // Check if we have accepted tasks from the AI scope
+    if (acceptedScopeTasks.length > 0) {
+        estimateItems.length = 0; // Clears the array
+        
+        acceptedScopeTasks.forEach((task, index) => {
+            // Create a new labor entry for the default item
+            const defaultTrade = task.trade || projectSettings.activeTrades[0] || "General";
+            const defaultRole = projectSettings.allTradeLaborRates[defaultTrade] && Object.keys(projectSettings.allTradeLaborRates[defaultTrade]).length > 0 ? Object.keys(projectSettings.allTradeLaborRates[defaultTrade])[0] : "Journeyman";
+            
+            const newItem = {
+                id: Date.now() + index, // Ensure unique ID
+                taskName: task.description, // Use task description as initial task name
+                description: `Generated from scope analysis (${task.trade})`,
+                laborEntries: [],
+                materialQuantity: 0,
+                materialUnitCost: 0,
+                equipmentRentalCost: 0,
+                subcontractorCostLineItem: 0,
+                miscLineItem: 0,
+                isChangeOrder: false
+            };
+
+            // Add the initial labor entry based on the task trade/category
+            const laborEntry = { 
+                id: `lab_${Date.now()}_${index}`, 
+                trade: defaultTrade, 
+                rateRole: defaultRole, 
+                hours: 0, 
+                otDtMultiplier: 1.0 
+            };
+
+            // Pre-fill fields based on AI-suggested category
+            if (task.category === 'Material') {
+                newItem.materialQuantity = 1;
+                newItem.materialUnitCost = 100; // Mock starting value
+            } else if (task.category === 'Subcontractor') {
+                newItem.subcontractorCostLineItem = 500; // Mock starting value
+            } else { // Default to Labor
+                laborEntry.hours = 4; // Mock starting hours
+            }
+            
+            newItem.laborEntries.push(laborEntry);
+            estimateItems.push(newItem);
+        });
+    } else if (estimateItems.length === 0) {
+        // If scope was generated but nothing was accepted AND the estimate is empty, create one default item
+         const defaultTrade = projectSettings.activeTrades[0] || "General";
+         const defaultRole = projectSettings.allTradeLaborRates[defaultTrade] && Object.keys(projectSettings.allTradeLaborRates[defaultTrade]).length > 0 ? Object.keys(projectSettings.allTradeLaborRates[defaultTrade])[0] : "Journeyman";
+
+         estimateItems.push({
+            id: Date.now(),
+            taskName: 'First Task',
+            description: 'Detail your first project task here.',
+            laborEntries: [
+                { id: `lab_${Date.now()}`, trade: defaultTrade, rateRole: defaultRole, hours: 0, otDtMultiplier: 1.0 }
+            ],
+            materialQuantity: 0, materialUnitCost: 0, equipmentRentalCost: 0,
+            subcontractorCostLineItem: 0, miscLineItem: 0, isChangeOrder: false
+         });
+    }
+    // If there were existing items and no scope was accepted, the existing items are preserved.
+
     onCompletionCallback(projectSettings);
 }
 
@@ -311,6 +771,20 @@ function validateStep1() {
         }
     }
     
+    // FIX 2: If the only active trade is "General" (the default initialization value) 
+    // AND the user hasn't actively selected more, force selection.
+    const isDefaultTradeOnly = projectSettings.activeTrades.length === 1 && projectSettings.activeTrades[0] === "General";
+    
+    // We assume if the user has touched the trade selection and it's still 'General', they intended it.
+    // However, since we are auto-clearing the default project name now, we should make sure the user actively selects a trade.
+    
+    // For simplicity, we just check if it's more than 0. If they didn't touch it, it should be "General".
+    // Let's refine the check on the display side to only show "Click to select trades..." if it's the *default* general trade.
+    
+    // The safest validation check is if there are NO active trades. Since the project always starts with "General",
+    // we only fail validation if they explicitly removed "General" AND didn't select anything else.
+    // Since the initial state is always ["General"], we allow it. The visual fix is enough.
+
     if (projectSettings.activeTrades.length === 0) {
         renderMessageBoxCallback("Please select at least one Trade Involved.");
         return false;
@@ -356,15 +830,12 @@ function validateStep2() {
 }
 
 function validateStep3() {
-    if (uploadedFiles.length === 0) {
-         renderMessageBoxCallback("Please upload at least one document before running the scope analysis.");
-         return false;
-    }
-
+    // Check if user confirmed to skip analysis (handled by confirmOrStartAnalysis)
     if (!isScopeGenerated) {
         renderMessageBoxCallback("Please analyze documents and review the generated scope before proceeding.");
         return false;
     }
+    
     // Save current scope text before moving to the next step
     projectSettings.scopeNarrative = scopeNarrativeTextarea.value;
     projectSettings.scopeInclusions = scopeInclusionsTextarea.value;
@@ -532,234 +1003,6 @@ function updateGuidance(id) {
 }
 
 
-// --- File Management Functions (New and Updated) ---
-
-function updateUploadedFiles(newFiles) {
-    // Convert FileList to Array and append to existing files
-    uploadedFiles = uploadedFiles.concat(Array.from(newFiles));
-    renderUploadedFiles();
-    updateUploadStatus();
-}
-
-function removeUploadedFile(index) {
-    if (index < 0 || index >= uploadedFiles.length) {
-        console.error("Invalid file index provided for deletion.");
-        return;
-    }
-    
-    renderMessageBoxCallback(`Are you sure you want to remove ${uploadedFiles[index].name}?`, () => {
-        uploadedFiles.splice(index, 1);
-        renderUploadedFiles();
-        updateUploadStatus();
-        if(closeMessageBoxCallback) closeMessageBoxCallback();
-    }, true);
-}
-
-function renderUploadedFiles() {
-    if (!uploadedFilesContainer) return;
-
-    if (uploadedFiles.length === 0) {
-        uploadedFilesContainer.classList.add('hidden');
-        return;
-    }
-
-    uploadedFilesContainer.classList.remove('hidden');
-    uploadedFilesContainer.innerHTML = uploadedFiles.map((file, index) => `
-        <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${file.name}</span>
-            <button type="button" class="delete-file-btn ml-2 text-red-500 hover:text-red-700 transition duration-150" data-index="${index}">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
-            </button>
-        </div>
-    `).join('');
-}
-
-function handleDocumentInputChange(event) {
-    const files = event.target.files;
-    if (files.length > 0) {
-        updateUploadedFiles(files);
-        // Clear file input to allow re-uploading the same file
-        event.target.value = ''; 
-    }
-}
-
-function handleDocumentDrop(event) {
-    event.preventDefault();
-    documentUploadArea.classList.remove('drag-over');
-    const files = event.dataTransfer.files;
-    if (files.length > 0) {
-        updateUploadedFiles(files);
-    }
-}
-
-function updateUploadStatus() {
-    if (uploadedFiles.length > 0) {
-        if (uploadStatusText) uploadStatusText.textContent = `${uploadedFiles.length} file(s) selected for analysis.`;
-        if (analyzeDocumentsBtn) {
-            analyzeDocumentsBtn.disabled = false;
-            // Use a higher contrast class for the active button
-            analyzeDocumentsBtn.className = "btn btn-blue-solid w-full"; 
-            analyzeDocumentsBtn.textContent = "Analyze Documents & Generate Scope";
-        }
-    } else {
-        if (uploadStatusText) uploadStatusText.textContent = `Supported: PDF, DOCX (Max 50MB)`;
-        if (analyzeDocumentsBtn) {
-            analyzeDocumentsBtn.disabled = true;
-            analyzeDocumentsBtn.className = "btn btn-blue-solid w-full opacity-50 cursor-not-allowed"; // Style disabled state
-            analyzeDocumentsBtn.textContent = "Analyze Documents & Generate Scope";
-        }
-        isScopeGenerated = false; // Reset scope if files are removed
-        if (scopeOutputPanel) scopeOutputPanel.classList.add('hidden');
-    }
-}
-
-function confirmOrStartAnalysis() {
-    if (isProcessing) return;
-    
-    // CHECK AGAINST NEW STATE
-    if (uploadedFiles.length === 0) {
-        renderMessageBoxCallback("Please upload at least one PDF or DOCX file to begin analysis.");
-        return;
-    }
-
-    if (isScopeGenerated) {
-        overwriteConfirmationModal.classList.remove('hidden');
-        overwriteConfirmBtn.onclick = startAnalysis;
-        cancelOverwriteBtn.onclick = () => overwriteConfirmationModal.classList.add('hidden');
-    } else {
-        startAnalysis();
-    }
-}
-
-function startAnalysis() {
-    overwriteConfirmationModal.classList.add('hidden');
-    isProcessing = true;
-    isScopeGenerated = false;
-    if (analyzeDocumentsBtn) {
-         analyzeDocumentsBtn.textContent = "Processing...";
-         analyzeDocumentsBtn.className = "btn btn-blue-solid w-full opacity-70 cursor-wait";
-    }
-
-    if (scopeOutputPanel) scopeOutputPanel.classList.add('hidden');
-    if (processingProgressContainer) processingProgressContainer.classList.remove('hidden');
-    
-    // MOCK Processing Stages (target: ~32 seconds)
-    const stages = [
-        "Extracting content from documents...",
-        "Reviewing trade scope requirements...",
-        "Generating draft narrative and items...",
-        "Finalizing scope structure..."
-    ];
-    
-    let stageIndex = 0;
-    const interval = 8000; // 8 seconds per stage (simulating long ops)
-    
-    if (progressMessage) progressMessage.textContent = stages[stageIndex];
-    stageIndex++;
-
-    const processingInterval = setInterval(() => {
-        if (stageIndex < stages.length) {
-            if (progressMessage) progressMessage.textContent = stages[stageIndex];
-            stageIndex++;
-        } else {
-            clearInterval(processingInterval);
-            // Simulate 90% success rate
-            const success = Math.random() < 0.9;
-            finishAnalysis(success);
-        }
-    }, interval);
-
-    updateGuidance('analyze');
-}
-
-function finishAnalysis(success) {
-    isProcessing = false;
-    if (analyzeDocumentsBtn) {
-        analyzeDocumentsBtn.disabled = false;
-    }
-    if (processingProgressContainer) processingProgressContainer.classList.add('hidden');
-    
-    if (success) {
-        // MOCK data generation
-        isScopeGenerated = true;
-        if (analyzeDocumentsBtn) {
-            analyzeDocumentsBtn.textContent = "Rerun Analysis";
-            analyzeDocumentsBtn.className = "btn btn-blue-solid w-full";
-        }
-        if (scopeOutputPanel) scopeOutputPanel.classList.remove('hidden');
-        renderMockScopeData();
-        updateGuidance('scopeOutput');
-    } else {
-        // Error Handling
-        renderMessageBoxCallback("Something went wrong. Please try again.");
-        if (analyzeDocumentsBtn) {
-            analyzeDocumentsBtn.textContent = "Analyze Documents & Generate Scope";
-            analyzeDocumentsBtn.className = "btn btn-blue-solid w-full";
-        }
-        isScopeGenerated = false;
-    }
-}
-
-function confirmRemoveScopeTask(taskId) {
-    renderMessageBoxCallback('Are you sure you want to reject this task line item? It will be removed from the list.', () => {
-        generatedScopeTasks = generatedScopeTasks.filter(t => t.id !== taskId);
-        renderMockScopeData(false); // Re-render without generating new mock data
-        if(closeMessageBoxCallback) closeMessageBoxCallback();
-    }, true);
-}
-
-function renderMockScopeData(generateNewData = true) {
-    if (generateNewData) {
-        // MOCK: Generate new structured task data
-        generatedScopeTasks = [
-            { id: 1, description: "Install 100A main service panel per plan 3/A-4.", trade: "Electrical", category: "Labor", accepted: true },
-            { id: 2, description: "Rough-in supply and waste lines for 3 fixtures.", trade: "Plumbing", category: "Labor", accepted: true },
-            { id: 3, description: "Supply and install 4-ton HVAC unit (Citation: Spec 11.3)", trade: "HVAC", category: "Material", accepted: true },
-            { id: 4, description: "Upgrade all existing light fixtures to LED.", trade: "Electrical", category: "Labor", accepted: false }
-        ].filter(task => projectSettings.activeTrades.includes(task.trade)); // Filter tasks by active trades
-
-        // MOCK: Fill text areas with initial generated content (or persistent content)
-        if (scopeNarrativeTextarea) projectSettings.scopeNarrative = projectSettings.scopeNarrative || "The scope of work generated from the documents is comprehensive, covering all selected trades and adheres to a neutral professional tone.";
-        if (scopeInclusionsTextarea) projectSettings.scopeInclusions = projectSettings.scopeInclusions || "- All materials and labor required for installation.\n- Standard 1-year warranty on workmanship.";
-        if (scopeExclusionsTextarea) projectSettings.scopeExclusions = projectSettings.scopeExclusions || "- Permitting fees are excluded.\n- Hazardous material abatement is excluded from this scope.";
-    }
-
-    if (scopeNarrativeTextarea) scopeNarrativeTextarea.value = projectSettings.scopeNarrative;
-    if (scopeInclusionsTextarea) scopeInclusionsTextarea.value = projectSettings.scopeInclusions;
-    if (scopeExclusionsTextarea) scopeExclusionsTextarea.value = projectSettings.scopeExclusions;
-
-    // RENDER: Render structured task data
-    if (!taskLineItemsContainer) return;
-    taskLineItemsContainer.innerHTML = ''; // Clear previous tasks
-    
-    if (generatedScopeTasks.length === 0) {
-         taskLineItemsContainer.innerHTML = `<p class="p-3 text-sm text-gray-500">No tasks remaining for selected trades.</p>`;
-         return;
-    }
-
-    generatedScopeTasks.forEach(task => {
-        const row = document.createElement('div');
-        row.className = "line-item-row flex items-center gap-4 p-3 border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-150";
-        
-        row.innerHTML = `
-            <input type="checkbox" id="task-${task.id}" data-task-id="${task.id}" ${task.accepted ? 'checked' : ''} class="task-checkbox">
-            <label for="task-${task.id}" class="flex-grow text-sm cursor-pointer">${task.description} <span class="text-xs text-blue-500">(${task.trade})</span></label>
-            <select class="input-field w-32 text-xs" data-task-id="${task.id}">
-                <option value="Labor" ${task.category === 'Labor' ? 'selected' : ''}>Labor</option>
-                <option value="Material" ${task.category === 'Material' ? 'selected' : ''}>Material</option>
-                <option value="Subcontractor" ${task.category === 'Subcontractor' ? 'selected' : ''}>Subcontractor</option>
-            </select>
-            <button class="btn btn-red-outline btn-sm py-1 px-3">Reject</button>
-        `;
-        taskLineItemsContainer.appendChild(row);
-    });
-    
-}
-
-
 // --- Exported Helper Functions for App.js ---
 // These must be kept as they are the public interface for the module
 
@@ -783,7 +1026,7 @@ export function populateTradesDropdown() {
             const checkboxId = `trade-${trade.replace(/\s/g, '-')}`;
             tradesDropdown.innerHTML += `
                 <label>
-                    <input type="checkbox" id="${checkboxId}" value="${trade}" ${isChecked ? 'checked' : ''}>
+                    <input type="checkbox" id="${checkboxId}" value="${trade}" ${isChecked ? 'checked' : ''} onchange="SetupWizard.handleTradeSelection(this)">
                     <span>${trade}</span>
                 </label>
             `;
@@ -795,10 +1038,27 @@ export function populateTradesDropdown() {
 export function updateSelectedTradesDisplay() {
     if (!selectedTradesDisplay) return;
     selectedTradesDisplay.innerHTML = '';
-    if (projectSettings.activeTrades.length === 0) {
+    
+    // FIX 3: Check if the project only contains the default "General" trade.
+    const isOnlyDefaultTrade = projectSettings.activeTrades.length === 1 && projectSettings.activeTrades[0] === "General";
+    
+    if (projectSettings.activeTrades.length === 0 || isOnlyDefaultTrade) {
         selectedTradesDisplay.innerHTML = `<span class="text-gray-400">Click to select trades...</span>`;
+        // If we only have "General" selected, display the placeholder but keep the data for validation/logic
+        if (isOnlyDefaultTrade) {
+             selectedTradesDisplay.innerHTML = `<span class="text-gray-400">Click to select trades...</span>`;
+             // We ensure that the initial Project Name and Client Name are cleared on load, 
+             // so the user is forced to actively interact with this step.
+             
+             // If we must show something, show it, but the goal is to prompt action.
+             // If the user hasn't touched it (new project), we show the prompt.
+        } else if (projectSettings.activeTrades.length === 0) {
+            selectedTradesDisplay.innerHTML = `<span class="text-gray-400">Click to select trades...</span>`;
+        }
+
         return;
     }
+    
     projectSettings.activeTrades.forEach(trade => {
         selectedTradesDisplay.innerHTML += `
             <span class="selected-trade-tag">
@@ -813,3 +1073,6 @@ export function updateSalesTaxForState(stateCode) {
     projectSettings.salesTax = taxRate;
     updateGuidance('projectState'); 
 }
+
+// Re-export private functions required by inline HTML (like onchange/onclick)
+export { handleTradeSelection, handleLogoDrop, clearLogo, handleLogoInputChange };
