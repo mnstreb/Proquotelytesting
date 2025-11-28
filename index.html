@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proquotely - Construction Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // Enable Tailwind's class-based dark mode
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="src/components/AppHeader/AppHeader.css">
+    <link rel="stylesheet" href="src/sections/SummaryOverview/SummaryOverview.css">
+    <link rel="stylesheet" href="src/sections/SetupWizard/SetupWizard.css">
+    <link rel="stylesheet" href="src/sections/SavedProjects/SavedProjects.css">
+    <link rel="stylesheet" href="src/components/SaveProjectModal/SaveProjectModal.css"> 
+    <link rel="stylesheet" href="src/components/CompanyProfile/CompanyProfile.css">
+    <link rel="stylesheet" href="src/sections/QuickQuoteSummary/QuickQuoteSummary.css">
+    <style>
+        /* Base styles and UI improvements (General styles remain here) */
+        body {
+            margin: 0;
+            font-family: 'Inter var', system-ui, -apple-system, sans-serif;
+            background: #f1f5f9; /* Changed to a more neutral light grey */
+            min-height: 100vh;
+            color: #374151;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.08);
+            padding: 30px;
+            margin-bottom: 25px;
+            transition: background-color 0.3s, box-shadow 0.3s;
+        }
+        .input-field {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            transition: border-color 0.2s, box-shadow 0.2s, background-color 0.3s, color 0.3s;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.04);
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.3);
+        }
+        .btn {
+            padding: 12px 25px;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            border: none;
+            font-size: 15px;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.2);
+        }
+        .btn-primary:hover {
+            background: #1D4ED8;
+            box-shadow: 0 6px 20px rgba(29, 78, 216, 0.3);
+            transform: translateY(-1px);
+        }
+        .btn-green {
+            background: #10b981;
+            color: white;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2);
+        }
+        .btn-green:hover {
+            background: #059669;
+            box-shadow: 0 6px 20px rgba(5, 150, 105, 0.3);
+            transform: translateY(-1px);
+        }
+        .btn-red {
+            background: #ef4444;
+            color: white;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+        }
+        .btn-red:hover {
+            background: #dc2626;
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.3);
+            transform: translateY(-1px);
+        }
+        .btn-orange { /* NEW: Style for the orange button */
+            background: #f97316;
+            color: white;
+            box-shadow: 0 4px 15px rgba(249, 115, 22, 0.2);
+        }
+        .btn-orange:hover {
+            background: #ea580c;
+            box-shadow: 0 6px 20px rgba(234, 88, 12, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: #475569;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+        }
+        .dark-theme .btn-secondary {
+            background-color: #475569;
+            color: #e2e8f0;
+        }
+
+        /* ✨ ADDED: Elegant icon button style */
+        .icon-btn {
+            background-color: #f1f5f9;
+            color: #64748b;
+            border-radius: 9999px; /* fully rounded */
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+        }
+        .icon-btn:hover {
+            background-color: #e2e8f0;
+            color: #1e293b;
+            transform: scale(1.1);
+        }
+        .dark-theme .icon-btn {
+            background-color: #334155;
+            color: #94a3b8;
+        }
+        .dark-theme .icon-btn:hover {
+            background-color: #475569;
+            color: #e2e8f0;
+        }
+
+        /* ✨ REFINED: More elegant red icon button for deleting labor */
+        .icon-btn-red {
+            background-color: transparent;
+            color: #9ca3af; /* Muted gray */
+            border-radius: 9999px;
+            width: 32px; /* Made smaller */
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease-in-out;
+            border: none;
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+        .icon-btn-red:hover {
+            background-color: #fee2e2; /* Light red on hover */
+            color: #ef4444;
+            transform: scale(1.05);
+        }
+        .dark-theme .icon-btn-red {
+            color: #64748b;
+        }
+        .dark-theme .icon-btn-red:hover {
+            background-color: #3f1212;
+            color: #fca5a5;
+        }
+
+
+        /* --- ✨ UPGRADED ENTRY POINT STYLES --- */
+        .entry-point-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+            background-color: #e2e8f0; /* Fallback background */
+            background-image:
+                linear-gradient(rgba(241, 245, 249, 0.8), rgba(241, 245, 249, 1)),
+                url('https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&q=80&fm=jpg&crop=entropy&cs=tinysrgb&w=2000');
+            background-size: cover;
+            background-position: center;
+            padding: 2rem;
+            overflow-y: auto; 
+            z-index: 2000;
+        }
+
+        .entry-point-grid {
+            display: grid;
+            grid-template-columns: 45% 55%; /* Adjusted grid balance */
+            width: 100%;
+            max-width: 1200px; /* Wider for more impact */
+            height: auto;
+            min-height: 700px; /* Taller for more presence */
+            background: white;
+            border-radius: 28px; /* Softer radius */
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.5); /* Frosted glass effect border */
+            backdrop-filter: blur(10px) saturate(180%);
+            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            background-color: rgba(255, 255, 255, 0.75); /* Frosted glass background */
+        }
+        
+        .entry-point-hero {
+            background-color: #0f172a; /* Dark slate background */
+            background-image: 
+                linear-gradient(to top, rgba(15, 23, 42, 1) 0%, rgba(15, 23, 42, 0.6) 100%),
+                repeating-linear-gradient(0deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 1px, transparent 20px),
+                repeating-linear-gradient(90deg, rgba(255,255,255,0.03), rgba(255,255,255,0.03) 1px, transparent 1px, transparent 20px);
+            color: #e2e8f0;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            animation: fadeInHero 1s ease-out;
+        }
+
+        @keyframes fadeInHero {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .entry-point-hero-logo {
+            max-width: 180px;
+            margin-bottom: 3rem;
+        }
+        .entry-point-hero h1 {
+            font-size: 3rem; /* Larger for more impact */
+            font-weight: 800;
+            color: #ffffff;
+            line-height: 1.2;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .entry-point-hero p {
+            font-size: 1.1rem;
+            color: #94a3b8; /* Lighter text color */
+            margin-top: 1rem;
+            max-width: 90%;
+        }
+
+        .hero-testimonial {
+            margin-top: auto;
+            padding-top: 2rem;
+            border-top: 1px solid #334155;
+        }
+
+        .hero-testimonial blockquote {
+            font-style: italic;
+            color: #cbd5e1;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .hero-testimonial footer {
+            margin-top: 1rem;
+            font-size: 0.9rem;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        
+        .entry-point-hero-footer {
+            font-size: 0.8rem;
+            color: #64748b;
+            padding-top: 2rem;
+        }
+
+        .entry-point-choices-container {
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            overflow-y: auto;
+        }
+        .entry-point-choices-container h2 {
+            font-size: 1.75rem; /* Larger heading */
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 0;
+            animation: fadeInRight 0.8s 0.2s ease-out backwards;
+        }
+        
+        @keyframes fadeInRight {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .choice-card {
+            background: #f8fafc;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            padding: 25px;
+            display: flex;
+            flex-direction: column; /* Changed for collapsible content */
+            text-align: left;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            animation: fadeInRight 0.8s 0.4s ease-out backwards;
+        }
+        .choice-card:nth-of-type(2) {
+             animation-delay: 0.6s;
+        }
+
+        .choice-card-main {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            cursor: pointer;
+        }
+        .choice-card:hover {
+            transform: translateY(-8px); /* More pronounced lift */
+            box-shadow: 0 15px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+        }
+        #detailedChoiceCard:hover { border-color: #3b82f6; }
+        #quickChoiceCard:hover { border-color: #10b981; }
+        
+        .choice-card-icon {
+            flex-shrink: 0;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.3s ease;
+        }
+        .choice-card:hover .choice-card-icon {
+            transform: scale(1.1);
+        }
+
+        .choice-card-icon.detailed-icon { background-color: #dbeafe; color: #2563eb; }
+        .choice-card-icon.quick-icon { background-color: #d1fae5; color: #059669; }
+        .choice-card-icon svg {
+            width: 28px;
+            height: 28px;
+        }
+        .choice-card-text h3 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 4px !important;
+        }
+        .choice-card-text p {
+            color: #475569;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 1rem; /* Added margin for spacing */
+        }
+
+        /* --- TRUSTED BY SECTION --- */
+        .trusted-by-section {
+            margin-top: auto; /* Pushes to the bottom */
+            padding-top: 1.5rem;
+            text-align: center;
+            animation: fadeInRight 0.8s 0.8s ease-out backwards;
+        }
+        .trusted-by-section h4 {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 1rem;
+        }
+        .trusted-by-logos {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 2rem;
+            filter: grayscale(100%) opacity(60%);
+        }
+        .trusted-by-logos svg {
+            height: 24px;
+        }
+
+        /* --- END UPGRADED STYLES --- */
+
+        /* ✨ NEW: Styles for collapsible features */
+        .view-features-link {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #2563eb;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        .view-features-link:hover {
+            text-decoration: underline;
+        }
+        .features-collapsible {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: max-height 0.5s ease-in-out, opacity 0.5s ease-in-out, margin-top 0.5s ease-in-out;
+        }
+        .features-collapsible.features-visible {
+            max-height: 500px; /* Large enough to fit content */
+            opacity: 1;
+            margin-top: 1rem;
+        }
+        .features-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .features-list h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 15px;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 8px;
+        }
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 0.95rem;
+        }
+        .feature-item svg {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+        }
+        .feature-item .check { color: #10b981; }
+        .feature-item .cross { color: #ef4444; }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        .label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4b5563;
+            font-size: 15px;
+            transition: color 0.3s;
+        }
+        h1 {
+            font-size: 32px;
+            color: #1f2937;
+            margin-bottom: 15px !important;
+            transition: color 0.3s;
+        }
+        h2 {
+            font-size: 26px;
+            color: #1f2937;
+            margin-bottom: 25px !important;
+            transition: color 0.3s;
+        }
+        h3 {
+            font-size: 22px;
+            color: #1f2937; /* Default light theme color */
+            margin-bottom: 20px !important;
+            transition: color 0.3s;
+        }
+
+        /* AI Chat Styles */
+        .ai-chat-button {
+            position: fixed;
+            bottom: 25px;
+            right: 25px;
+            background-color: #2563eb;
+            color: white;
+            width: 60px; 
+            height: 60px;
+            border-radius: 50%; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px; 
+            font-weight: 600;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            z-index: 999;
+        }
+        .ai-chat-button:hover {
+            background-color: #1D4ED8;
+            transform: translateY(-2px);
+        }
+        .ai-chat-modal {
+            position: fixed;
+            bottom: 100px;
+            right: 25px;
+            width: 400px;
+            height: 500px;
+            background-color: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 1000;
+            transform: translateY(20px) scale(0.95);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease-in-out;
+        }
+        .ai-chat-modal.show {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+            visibility: visible;
+        }
+        .ai-chat-header {
+            padding: 15px;
+            background-color: #f3f4f6;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .ai-chat-header h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0;
+        }
+        .ai-chat-close-btn {
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        .ai-chat-history {
+            flex-grow: 1;
+            padding: 15px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .chat-bubble {
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            line-height: 1.5;
+        }
+        .chat-bubble.user {
+            background-color: #2563eb;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .chat-bubble.ai {
+            background-color: #e5e7eb;
+            color: #1f2937;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
+        .chat-bubble.loading {
+            align-self: flex-start;
+            color: #6b7280;
+        }
+        .ai-chat-input-area {
+            padding: 15px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            gap: 10px;
+        }
+        .ai-chat-input-area input {
+            flex-grow: 1;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .entry-point-grid {
+                grid-template-columns: 1fr;
+                max-height: none;
+                height: auto;
+                min-height: auto;
+            }
+            .entry-point-hero {
+                display: none; /* Hide hero panel on smaller screens for simplicity */
+            }
+            .entry-point-choices-container {
+                padding: 25px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .card, .wizard-content {
+                padding: 20px;
+                margin-bottom: 15px;
+            }
+            .btn {
+                padding: 10px 20px;
+                font-size: 14px;
+            }
+            .header-title {
+                font-size: 24px;
+            }
+            .header-subtitle {
+                font-size: 15px;
+            }
+        }
+
+        /* Dark Theme Styles */
+        body.dark-theme {
+            background: linear-gradient(135deg, #1a202c 0%, #2d3748 100%);
+            color: #e2e8f0;
+        }
+        .dark-theme .card {
+            background: #2d3748;
+            box-shadow: 0 6px 25px rgba(0,0,0,0.4);
+        }
+        .dark-theme .input-field {
+            background-color: #4a5568;
+            border-color: #4a5568;
+            color: #e2e8f0;
+        }
+        .dark-theme .input-field:focus {
+            border-color: #63b3ed;
+            box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.3);
+        }
+        .dark-theme .label,
+        .dark-theme h1,
+        .dark-theme h2,
+        .dark-theme .summary-block h4,
+        .dark-theme .summary-item strong,
+        body.dark-theme .card h3,
+        body.dark-theme .choice-card-text h3 {
+            color: #e2e8f0;
+        }
+
+        .dark-theme .header-subtitle,
+        .dark-theme .summary-item,
+        .dark-theme .multi-select-dropdown p,
+        .dark-theme .multi-select-dropdown label span,
+        .dark-theme .skill-name-display,
+        .dark-theme .rate-label {
+            color: #a0aec0;
+        }
+
+        .dark-theme .selected-trades-display,
+        .dark-theme .multi-select-dropdown {
+            background-color: #4a5568;
+            border-color: #4a5568;
+        }
+        .dark-theme .selected-trade-tag {
+            background-color: #4299e1;
+            color: white;
+        }
+        
+        /* Dark Theme for Upgraded Entry Point */
+        .dark-theme .entry-point-grid {
+             background-color: rgba(15, 23, 42, 0.8);
+             border: 1px solid rgba(51, 65, 85, 0.8);
+        }
+        .dark-theme .entry-point-choices-container {
+            background: transparent;
+        }
+        .dark-theme .choice-card {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        .dark-theme .choice-card:hover {
+            border-color: #60a5fa;
+        }
+        .dark-theme .choice-card-text p {
+            color: #94a3b8;
+        }
+        .dark-theme .view-features-link {
+            color: #60a5fa;
+        }
+        .dark-theme .trusted-by-section h4 {
+            color: #64748b;
+        }
+        .dark-theme .trusted-by-logos {
+            filter: grayscale(100%) opacity(60%) invert(100%);
+        }
+
+        /* Global Trade Selector */
+        .trade-selector-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .trade-selector-group .label {
+            margin-bottom: 0;
+            flex-shrink: 0;
+            white-space: nowrap;
+        }
+
+        .trade-selector-group .input-field {
+            max-width: 150px;
+            flex-grow: 0;
+        }
+
+        .trade-selector-group .btn-green {
+            flex-shrink: 0;
+            min-width: 100px;
+        }
+
+        /* --- ✨ MODIFIED & NEW: LINE ITEM ACCORDION STYLES --- */
+        .line-item-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .line-item-row {
+            background: white; /* Changed from #f8fafc */
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            transition: all 0.3s ease-in-out;
+        }
+
+        .line-item-row.expanded {
+            box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+            border-color: #c7d2fe;
+            background: #f8fafc; /* Make expanded row slightly different */
+        }
+        
+        .line-item-header {
+            display: grid;
+            grid-template-columns: 1fr 1fr 150px 120px;
+            gap: 1rem;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+        }
+
+        .line-item-header .task-name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .line-item-header .description {
+            font-size: 0.9rem;
+            color: #64748b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .line-item-header .line-total {
+            font-weight: 700;
+            font-size: 1.1rem;
+            color: #1e293b;
+            text-align: right;
+        }
+
+        .line-item-header .actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+        .actions .btn-sm {
+            padding: 6px 10px;
+            font-size: 0.85em;
+        }
+        .actions svg {
+            width: 16px; 
+            height: 16px;
+        }
+        .expand-icon {
+            transition: transform 0.3s ease;
+        }
+        .line-item-row.expanded .expand-icon {
+            transform: rotate(180deg);
+        }
+
+        .line-item-details {
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: max-height 0.5s ease-in-out, opacity 0.3s ease-in-out, padding 0.5s ease-in-out;
+            padding: 0 1.5rem;
+        }
+
+        .line-item-details.expanded {
+            max-height: 1000px; /* Large enough to fit content */
+            opacity: 1;
+            padding: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        /* ✨ MODIFIED: Changed .details-section to a pod style */
+        .details-section {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .details-section h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #334155;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .details-section .form-group {
+            margin-bottom: 1rem;
+        }
+        .details-section .input-field {
+            font-size: 0.9rem;
+            padding: 8px 12px;
+        }
+        .details-section .label {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        /* Dark theme for new line items */
+        .dark-theme .line-item-row {
+            background: #2d3748;
+            border-color: #4a5568;
+        }
+        .dark-theme .line-item-row.expanded {
+            border-color: #6366f1;
+            background: #1e293b;
+        }
+        .dark-theme .line-item-header .task-name,
+        .dark-theme .line-item-header .line-total {
+            color: #e2e8f0;
+        }
+        .dark-theme .line-item-header .description {
+            color: #a0aec0;
+        }
+        .dark-theme .line-item-details {
+            border-top-color: #4a5568;
+        }
+        
+        /* ✨ MODIFIED: Dark theme for pods */
+        .dark-theme .details-section {
+            background-color: #2d3748;
+            border-color: #4a5568;
+        }
+        .dark-theme .details-section h4 {
+            color: #cbd5e1;
+            border-bottom-color: #4a5568;
+        }
+        
+        /* ✨ ADDED: Styles for multi-labor entry UI */
+        .labor-entries-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem; /* 24px */
+        }
+        .labor-entry-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px dashed #e2e8f0; /* ✨ MODIFIED: Softer dashed separator */
+        }
+        .labor-entry-row:last-of-type {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .dark-theme .labor-entry-row {
+            border-bottom-color: #334155; /* Darker dashed separator */
+        }
+        /* ✨ REFINED: Add labor button container */
+        .add-labor-btn-container {
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px dashed #d1d5db; /* Softer dashed separator */
+            text-align: center;
+        }
+        .dark-theme .add-labor-btn-container {
+            border-top-color: #4a5568;
+        }
+        /* ✨ REFINED: Add labor button is now a subtle link */
+        .add-labor-btn {
+            background-color: transparent;
+            color: #4f46e5;
+            padding: 4px;
+            font-size: 0.875rem;
+            border-radius: 6px;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+        .add-labor-btn:hover {
+            background-color: #eef2ff;
+        }
+        .dark-theme .add-labor-btn {
+            color: #a5b4fc;
+        }
+        .dark-theme .add-labor-btn:hover {
+            background-color: #3730a3;
+        }
+
+
+        /* ✨ ADDED: Styles for Change Order visual indicator */
+        .line-item-row.is-change-order .line-item-header {
+            background-color: #fefce8; /* A light yellow */
+            border-left: 4px solid #f59e0b;
+        }
+        body.dark-theme .line-item-row.is-change-order .line-item-header {
+            background-color: #422006; /* A dark amber */
+            border-left-color: #f59e0b;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+
+    <!-- ✨ UPGRADED Entry Point Screen -->
+    <div id="entryPointContainer" class="entry-point-container screen-container">
+        <div class="entry-point-grid">
+            <!-- Left Hero Panel -->
+            <div class="entry-point-hero">
+                <div>
+                    <img src="Assets/ProquotelyLight-25.png" alt="Proquotely Logo" class="entry-point-hero-logo">
+                    <h1>Powerful estimates, simplified.</h1>
+                    <p>Move from complex spreadsheets to professional, accurate quotes in minutes. Proquotely is the modern toolkit for today's contractor.</p>
+                </div>
+                <div>
+                    <div class="hero-testimonial">
+                        <blockquote>“The most intuitive and powerful estimating tool we've ever used. It cut our quoting time in half.”</blockquote>
+                        <footer>— Alex Chen, CEO of Summit Construction</footer>
+                    </div>
+                    <div class="entry-point-hero-footer">
+                        &copy; 2024 Proquotely. All Rights Reserved.
+                    </div>
+                </div>
+            </div>
+            <!-- Right Choices Panel -->
+            <div class="entry-point-choices-container">
+                <h2>Select Your Starting Point</h2>
+                
+                <!-- Detailed Estimate Card -->
+                <div class="choice-card" id="detailedChoiceCard">
+                    <div>
+                        <div class="choice-card-main">
+                            <div class="choice-card-icon detailed-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                                </svg>
+                            </div>
+                            <div class="choice-card-text">
+                                <h3>Pro Quote</h3>
+                                <p>For complex projects requiring line-by-line control over labor, materials, and other costs.</p>
+                            </div>
+                        </div>
+                        <a href="#" class="view-features-link">View Features</a>
+                        <div class="features-collapsible">
+                             <ul class="features-list">
+                                <h4>Advanced Features</h4>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Project Set Up Walkthrough</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Company Info & Logo Setup</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Line-item Granularity</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Multiple Trades & Skills</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Customizable Labor Rates</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>"At-a-Glance" Financial Summary</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Cost Distribution Charts</span></li>
+                            </ul>
+                        </div>
+                        <button id="startDetailedBtn" class="btn btn-primary w-full mt-4">Start Pro Quote </button>
+                    </div>
+                </div>
+
+                <!-- Quick Quote Card -->
+                <div class="choice-card" id="quickChoiceCard">
+                     <div>
+                        <div class="choice-card-main">
+                            <div class="choice-card-icon quick-icon">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                                </svg>
+                            </div>
+                            <div class="choice-card-text">
+                                <h3>Quick Quote</h3>
+                                <p>For rapid, high-level estimates when you need a ballpark figure for a client quickly.</p>
+                            </div>
+                        </div>
+                        <a href="#" class="view-features-link">View Features</a>
+                         <div class="features-collapsible">
+                             <ul class="features-list">
+                                <h4>Core Features</h4>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Professional PDF Exports</span></li>
+                                <li class="feature-item"><svg class="check" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Save Projects</span></li>
+                                 <h4 class="mt-4">Advanced Features</h4>
+                                <li class="feature-item"><svg class="cross" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Project Set Up Walkthrough</span></li>
+                                <li class="feature-item"><svg class="cross" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Company Info & Logo Setup</span></li>
+                                <li class="feature-item"><svg class="cross" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg><span>Line-item Granularity</span></li>
+                            </ul>
+                        </div>
+                        <button id="startQuickQuoteBtn" class="btn btn-green w-full mt-4">Start Quick Quote</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+
+    <div class="container hidden" id="appHeaderContainer">
+        <div id="appHeaderPlaceholder"></div>
+    </div>
+
+    <div id="mainApp" class="container hidden screen-container">
+        
+        <div id="summaryOverviewPlaceholder"></div>
+
+        <div class="card mt-6" id="estimateLineItemsContainer">
+             <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-semibold text-gray-800">Estimate Line Items</h3>
+                <div class="flex items-center gap-4">
+                    <button id="toggleCollapseBtn" class="icon-btn" title="Toggle Expand/Collapse All">
+                        <svg id="collapseIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
+                    </button>
+                    <div class="trade-selector-group">
+                        <label for="defaultTradeSelector" class="label">Default Trade for New Items:</label>
+                        <select id="defaultTradeSelector" class="input-field"></select>
+                        <button id="addItemBtn" class="btn btn-green">➕ Add Item</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="estimateItemsContainer" class="line-item-container">
+                <!-- Line items will be dynamically inserted here by app.js -->
+            </div>
+
+        </div>
+    </div>
+
+    <div id="quickQuoteApp" class="container hidden screen-container">
+        <div id="quickQuoteSummaryPlaceholder"></div>
+    </div>
+
+
+    <div id="setupWizardPlaceholder"></div>
+
+    <div id="savedProjectsPlaceholder"></div>
+    
+    <div id="companyProfilePlaceholder"></div>
+
+    <div id="saveProjectModal" class="save-project-modal">
+        <div class="save-project-modal-content">
+            <h3>Save Project</h3>
+            <div class="form-group">
+                <label for="saveProjectName" class="label">Project Name:</label>
+                <input type="text" id="saveProjectName" class="input-field" required>
+            </div>
+            <div class="form-group">
+                <label for="saveCustomerName" class="label">Customer Name:</label>
+                <input type="text" id="saveCustomerName" class="input-field" required>
+            </div>
+            <div class="form-group">
+                <label for="saveLocation" class="label">Location (State):</label>
+                <input type="text" id="saveLocation" class="input-field" required>
+            </div>
+            <div class="form-group">
+                <label for="saveProjectCost" class="label">Total Project Cost:</label>
+                <input type="text" id="saveProjectCost" class="value-display" readonly>
+            </div>
+            <div class="flex justify-end gap-3 mt-4">
+                <button id="cancelSaveProjectBtn" class="btn btn-red">Cancel</button>
+                <button id="confirmSaveProjectBtn" class="btn btn-green">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <button id="aiChatButton" class="ai-chat-button">AI</button>
+
+    <div id="aiChatModal" class="ai-chat-modal">
+        <div class="ai-chat-header">
+            <h4>AI Estimating Assistant</h4>
+            <button id="aiChatCloseBtn" class="ai-chat-close-btn">&times;</button>
+        </div>
+        <div id="aiChatHistory" class="ai-chat-history">
+            <div class="chat-bubble ai">
+                Hello! How can I help you with your estimate today?
+            </div>
+        </div>
+        <div class="ai-chat-input-area">
+            <input type="text" id="aiChatInput" class="input-field" placeholder="Ask a question...">
+            <button id="aiChatSendBtn" class="btn btn-primary">Send</button>
+        </div>
+    </div>
+
+    <script type="module" src="src/app.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // This logic runs after the main app.js has loaded and attached its listeners.
+
+            // --- Collapsible Features Logic ---
+            const featureLinks = document.querySelectorAll('.view-features-link');
+            featureLinks.forEach(link => {
+                link.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation(); // Stop this click from bubbling to other elements
+
+                    const featuresContainer = link.nextElementSibling;
+                    featuresContainer.classList.toggle('features-visible');
+                    link.textContent = featuresContainer.classList.contains('features-visible') ? 'Hide Features' : 'View Features';
+                });
+            });
+
+            // --- Card Click Logic ---
+            const choiceCardMains = document.querySelectorAll('.choice-card-main');
+            choiceCardMains.forEach(mainArea => {
+                mainArea.addEventListener('click', (event) => {
+                    // Find the button within the parent card and click it.
+                    const parentCard = event.currentTarget.closest('.choice-card');
+                    const button = parentCard.querySelector('.btn');
+                    if (button) {
+                        button.click();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
+
+
+

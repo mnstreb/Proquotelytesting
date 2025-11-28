@@ -1,0 +1,68 @@
+/* src/components/CompanyProfile/CompanyProfile.css */
+.company-profile-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001;
+    backdrop-filter: blur(5px);
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.company-profile-modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.company-profile-content {
+    background: white;
+    padding: 30px 40px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    max-width: 550px;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.company-profile-content .modal-header {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.company-profile-content h3 {
+    margin-top: 0;
+    font-size: 1.8rem;
+    color: #1f2937;
+    transition: color 0.3s;
+}
+
+.company-profile-content p {
+    color: #4b5563;
+    font-size: 0.95rem;
+    margin-top: -10px;
+}
+
+/* Dark Theme */
+body.dark-theme .company-profile-content {
+    background: #2d3748;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+body.dark-theme .company-profile-content h3 {
+    color: #e2e8f0;
+}
+body.dark-theme .company-profile-content p {
+    color: #a0aec0;
+}

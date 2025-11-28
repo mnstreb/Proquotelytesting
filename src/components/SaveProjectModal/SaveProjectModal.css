@@ -1,0 +1,76 @@
+/* src/components/SaveProjectModal/SaveProjectModal.css */
+
+.save-project-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1001; /* Ensure it's above other content and backdrop-filter */
+    backdrop-filter: blur(5px);
+    padding: 20px;
+    box-sizing: border-box;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+}
+
+.save-project-modal.show {
+    opacity: 1;
+    visibility: visible;
+}
+
+.save-project-modal-content {
+    background: white;
+    padding: 30px;
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    max-width: 500px;
+    width: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.save-project-modal-content h3 {
+    margin-top: 0;
+    text-align: center;
+    font-size: 1.8rem;
+    color: #1f2937;
+    transition: color 0.3s;
+}
+
+.save-project-modal-content .form-group {
+    margin-bottom: 0; /* Override default form-group margin */
+}
+
+.save-project-modal-content .value-display {
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background-color: #f3f4f6; /* Light gray background for display fields */
+    color: #4b5563;
+    font-size: 15px;
+    font-weight: 500;
+    cursor: not-allowed; /* Indicate it's not directly editable */
+}
+
+/* Dark Theme for Save Project Modal */
+body.dark-theme .save-project-modal-content {
+    background: #2d3748;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+}
+body.dark-theme .save-project-modal-content h3 {
+    color: #e2e8f0;
+}
+body.dark-theme .save-project-modal-content .value-display {
+    background-color: #4a5568;
+    border-color: #4a5568;
+    color: #e2e8f0;
+}

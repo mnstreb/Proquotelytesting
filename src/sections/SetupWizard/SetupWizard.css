@@ -1,0 +1,561 @@
+/* Styles specific to the SetupWizard section */
+.setup-wizard-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #f1f5f9;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    z-index: 1000;
+    padding: 2rem;
+    box-sizing: border-box;
+    overflow-y: auto;
+}
+
+.wizard-content {
+    background: white;
+    padding: 2.5rem;
+    border-radius: 24px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+    max-width: 900px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: background-color 0.3s, box-shadow 0.3s;
+}
+
+.wizard-header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+}
+.wizard-logo {
+    max-width: 150px;
+    margin: 0 auto 1rem;
+}
+.wizard-header h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.5rem;
+}
+.wizard-header p {
+    color: #64748b;
+    font-size: 1rem;
+}
+
+
+/* --- Professional Progress Bar --- */
+.progress-container {
+    width: 100%;
+    position: relative;
+    margin-bottom: 3rem;
+}
+
+.step-indicators-wrapper {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    position: relative;
+    z-index: 3;
+}
+
+/* Adjusted spacing for 4 steps */
+.progress-bar-background {
+    position: absolute;
+    top: 20px; 
+    left: 45px; /* Adjusted */
+    right: 45px; /* Adjusted */
+    height: 4px;
+    background-color: #e2e8f0;
+    z-index: 1;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #4f46e5;
+    width: 0%; 
+    transition: width 0.5s ease-in-out;
+    border-radius: 2px;
+}
+
+.step-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    /* Adjusted width for 4 steps */
+    width: 120px; 
+    position: relative;
+}
+
+.step-circle {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: #ffffff; 
+    color: #94a3b8;
+    border: 2px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    transition: all 0.3s ease-in-out;
+    margin-bottom: 0.75rem;
+}
+.step-circle svg {
+    width: 22px;
+    height: 22px;
+}
+
+.step-item.active .step-circle {
+    border-color: #4f46e5;
+    color: #4f46e5;
+    background-color: #eef2ff;
+}
+
+.step-item.completed .step-circle {
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: white;
+}
+
+.step-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #9ca3af;
+    transition: color 0.3s;
+}
+.step-subtext {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #9ca3af;
+    transition: color 0.3s;
+}
+
+.step-item.active .step-label { color: #4f46e5; }
+.step-item.completed .step-label { color: #1e293b; }
+.step-item.active .step-subtext, .step-item.completed .step-subtext { color: #64748b; }
+
+
+/* --- Step Content Layout --- */
+.wizard-step-content {
+    width: 100%;
+}
+.step-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 2rem;
+}
+.form-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* --- Form Sections --- */
+.form-section {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    overflow: hidden;
+}
+.form-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    color: #475569;
+}
+.form-section-header svg { width: 20px; height: 20px; }
+.form-section-header h4 { font-weight: 600; font-size: 1rem; margin: 0; }
+.form-section-content { padding: 1.5rem; }
+.form-section-content .form-group:last-child {
+    margin-bottom: 0;
+}
+
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+.form-group:last-child {
+    margin-bottom: 0;
+}
+.label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #334155;
+}
+.input-field:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+}
+
+/* --- Guidance Column --- */
+.guidance-column {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+.logo-upload-area {
+    background: white;
+    border: 2px dashed #e2e8f0;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    min-height: 140px;
+    position: relative; 
+    overflow: hidden;
+}
+.logo-upload-area:hover, .logo-upload-area.drag-over {
+    background: #eef2ff;
+    border-color: #6366f1;
+}
+/* For Logo */
+.logo-upload-area .uploaded-logo {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    max-width: calc(100% - 3rem); /* Respect container padding */
+    max-height: calc(100% - 3rem); /* Respect container padding */
+    object-fit: contain;
+}
+/* For both Logo and Document placeholder content */
+.logo-upload-area .placeholder-content {
+    color: #64748b;
+    text-align: center;
+}
+.logo-upload-area .placeholder-content svg {
+    display: block;
+    margin: 0 auto 0.75rem; 
+    color: #6366f1;
+    width: 24px;
+    height: 24px;
+}
+.upload-text { font-weight: 600; font-size: 1rem; }
+.upload-subtext { font-size: 0.85rem; color: #94a3b8; }
+
+.clear-logo-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(239, 68, 68, 0.8); 
+    color: white;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+    cursor: pointer;
+    opacity: 0; 
+    transition: opacity 0.2s ease-in-out;
+}
+.logo-upload-area:hover .clear-logo-btn:not(.hidden) {
+    opacity: 1;
+}
+
+.guidance-card {
+    background-color: #f1f5f9;
+    padding: 1.5rem;
+    border-radius: 16px;
+    height: 100%;
+}
+.guidance-card h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 0 0 0.75rem 0;
+}
+.guidance-card p {
+    font-size: 0.9rem;
+    color: #64748b;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* --- Trades Selector --- */
+.multi-select-container {
+    position: relative;
+}
+.multi-select-dropdown {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    background-color: white;
+    position: fixed; /* Changed from absolute */
+    z-index: 1010;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+}
+.multi-select-dropdown label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 6px;
+}
+.multi-select-dropdown label:hover {
+    background-color: #f3f4f6;
+}
+.selected-trades-display {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    min-height: 44px;
+    cursor: pointer;
+    background-color: white;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+}
+.selected-trade-tag {
+    background-color: #eef2ff;
+    color: #4338ca;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.selected-trade-tag .remove-tag {
+    cursor: pointer;
+    font-weight: bold;
+    color: #94a3b8;
+}
+
+/* Advanced Details */
+.advanced-link {
+    color: #4f46e5;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+.advanced-link:hover {
+    text-decoration: underline;
+}
+
+/* Step 2 & 3 Titles */
+.step-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #1e293b;
+}
+.step-subtitle {
+    max-width: 500px;
+    color: #64748b;
+}
+
+/* Step 2 Labor Rates */
+.trade-labor-rates-group {
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    background-color: #f8fafc;
+    overflow: hidden;
+}
+.trade-labor-rates-group h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-weight: 600;
+}
+.skill-level-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid #e5e7eb;
+    gap: 15px;
+}
+.skill-level-row:last-child {
+    border-bottom: none;
+}
+.skill-name-display {
+    font-weight: 500;
+    color: #334155;
+}
+.rate-input-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.rate-label {
+    font-size: 0.9rem;
+    color: #64748b;
+}
+.rate-input {
+    width: 100px;
+}
+.remove-skill-btn {
+    background-color: #fee2e2;
+    color: #ef4444;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.2s, color 0.2s;
+}
+.remove-skill-btn:hover {
+    background-color: #ef4444;
+    color: white;
+}
+.remove-skill-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+
+/* --- NEW: Toggle Switch Style for Optional Features (Step 3) --- */
+.toggle-switch {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    -webkit-appearance: none;
+    appearance: none;
+    background-color: #e2e8f0;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    outline: none;
+    vertical-align: middle;
+}
+
+.toggle-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 9999px;
+    transition: transform 0.3s, background-color 0.3s;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+}
+
+.toggle-switch:checked {
+    background-color: #4f46e5;
+}
+
+.toggle-switch:checked::after {
+    transform: translateX(20px);
+}
+/* --- END NEW STYLE --- */
+
+/* --- NEW PROMINENT BLUE BUTTON STYLE --- */
+.btn-blue-solid {
+    background-color: #3b82f6; /* Tailwind blue-500 */
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.5), 0 2px 4px -2px rgba(59, 130, 246, 0.5);
+    padding: 1rem 1.5rem;
+    font-size: 1.125rem;
+}
+.btn-blue-solid:hover {
+    background-color: #2563eb; /* Tailwind blue-600 */
+}
+/* --- Secondary Outline Button (Used in Scope Panel) --- */
+.btn-secondary-outline {
+    background-color: transparent;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    border-radius: 8px;
+    font-weight: 600;
+}
+.btn-secondary-outline:hover {
+    background-color: #f1f5f9;
+    color: #1e293b;
+}
+
+
+/* --- WIZARD NAVIGATION --- */
+.wizard-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    margin-top: 2.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e2e8f0;
+}
+.wizard-navigation > div {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* --- DARK THEME STYLES --- */
+body.dark-theme .setup-wizard-container { background: #0f172a; }
+body.dark-theme .wizard-content { background: #1e293b; box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+body.dark-theme .wizard-header h2 { color: #f1f5f9; }
+body.dark-theme .wizard-header p { color: #94a3b8; }
+body.dark-theme .progress-bar-background { background-color: #334155; }
+body.dark-theme .step-circle { background: #1e293b; color: #94a3b8; border-color: #334155; }
+body.dark-theme .step-item.active .step-circle { border-color: #818cf8; color: #818cf8; background-color: #3730a3; }
+body.dark-theme .step-item.completed .step-circle { background: #818cf8; border-color: #818cf8; color: #1e293b; }
+body.dark-theme .step-label { color: #94a3b8; }
+body.dark-theme .step-item.active .step-label { color: #818cf8; }
+body.dark-theme .step-item.completed .step-label { color: #f1f5f9; }
+body.dark-theme .step-item.active .step-subtext, body.dark-theme .step-item.completed .step-subtext { color: #94a3b8; }
+body.dark-theme .form-section { background: #1e293b; border-color: #334155; }
+body.dark-theme .form-section-header { background-color: #334155; border-color: #475569; color: #cbd5e1; }
+body.dark-theme .label { color: #cbd5e1; }
+body.dark-theme .logo-upload-area { background: #1e293b; border-color: #334155; }
+body.dark-theme .logo-upload-area:hover { background: #334155; border-color: #818cf8; }
+body.dark-theme .guidance-card { background-color: #334155; }
+body.dark-theme .guidance-card h4 { color: #f1f5f9; }
+body.dark-theme .guidance-card p { color: #94a3b8; }
+body.dark-theme .advanced-link { color: #818cf8; }
+body.dark-theme .selected-trades-display { background-color: #475569; border-color: #64748b; }
+body.dark-theme .selected-trade-tag { background-color: #4338ca; color: #e0e7ff; }
+body.dark-theme .multi-select-dropdown { background-color: #334155; border-color: #64748b; }
+body.dark-theme .multi-select-dropdown label:hover { background-color: #475569; }
+body.dark-theme .wizard-navigation { border-color: #334155; }
+body.dark-theme .trade-labor-rates-group { background-color: #334155; border-color: #475569; }
+body.dark-theme .trade-labor-rates-group h3, body.dark-theme .skill-level-row { border-color: #475569; }
+body.dark-theme .skill-name-display { color: #cbd5e1; }
+body.dark-theme .rate-label { color: #94a3b8; }
+body.dark-theme .toggle-switch { background-color: #475569; }
+body.dark-theme .toggle-switch::after { background-color: #1e293b; }
+body.dark-theme .toggle-switch:checked { background-color: #818cf8; }
+body.dark-theme .toggle-switch:checked::after { background-color: white; }
+body.dark-theme .btn-blue-solid {
+    background-color: #60a5fa; /* Blue-400 */
+    box-shadow: 0 4px 6px -1px rgba(96, 165, 250, 0.4), 0 2px 4px -2px rgba(96, 165, 250, 0.4);
+}
+body.dark-theme .btn-blue-solid:hover {
+    background-color: #3b82f6; /* Blue-500 */
+}
+body.dark-theme .btn-secondary-outline {
+    background-color: transparent;
+    color: #94a3b8;
+    border-color: #475569;
+}
+body.dark-theme .btn-secondary-outline:hover {
+    background-color: #334155;
+    color: #f1f5f9;
+}
+/* --- END DARK THEME --- */
