@@ -550,7 +550,6 @@ body.dark-theme .btn-blue-solid:hover {
     background-color: #3b82f6; /* Blue-500 */
 }
 body.dark-theme .btn-secondary-outline {
-    background-color: transparent;
     color: #94a3b8;
     border-color: #475569;
 }
@@ -559,3 +558,100 @@ body.dark-theme .btn-secondary-outline:hover {
     color: #f1f5f9;
 }
 /* --- END DARK THEME --- */
+
+
+/* --- ✨ NEW: STEP 3 SCOPE REVIEW STYLES --- */
+#taskLineItemsContainer {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+#taskLineItemsContainer .line-item-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 15px;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+#taskLineItemsContainer .line-item-row:last-child {
+    border-bottom: none;
+}
+
+#taskLineItemsContainer .task-checkbox {
+    /* Style for the checkbox input */
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    accent-color: #4f46e5; /* Primary color for checked state */
+}
+
+#taskLineItemsContainer label {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #1f2937;
+    flex-grow: 1;
+}
+
+/* Highlight the Task Description and the Trade */
+#taskLineItemsContainer label span {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #4f46e5; /* Blue for the trade */
+    margin-left: 8px;
+}
+
+#taskLineItemsContainer .task-category-select {
+    /* Style for the dropdown menu */
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    width: 120px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+#taskLineItemsContainer .task-reject-btn {
+    /* Use the standard btn-secondary-outline but slightly smaller */
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+/* Dark Theme Adjustments for Step 3 */
+body.dark-theme #taskLineItemsContainer {
+    border-color: #334155;
+    background-color: #1e293b;
+}
+
+body.dark-theme #taskLineItemsContainer .line-item-row {
+    border-bottom-color: #334155;
+}
+
+body.dark-theme #taskLineItemsContainer label {
+    color: #e2e8f0;
+}
+
+body.dark-theme #taskLineItemsContainer label span {
+    color: #818cf8;
+}
+
+body.dark-theme #taskLineItemsContainer .task-category-select {
+    background-color: #475569;
+    color: #e2e8f0;
+    border-color: #475569;
+}
+
+body.dark-theme #taskLineItemsContainer .task-reject-btn {
+    color: #94a3b8;
+    border-color: #475569;
+}
+body.dark-theme #taskLineItemsContainer .task-reject-btn:hover {
+    background-color: #334155;
+    color: #f1f5f9;
+}
+
+/* --- END STEP 3 SCOPE REVIEW STYLES --- */
