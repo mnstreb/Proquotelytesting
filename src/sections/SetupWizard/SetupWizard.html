@@ -63,7 +63,8 @@
                         <div class="form-section-content">
                             <div class="form-group">
                                 <label for="projectName" class="label">Project Name:</label>
-                                <input type="text" id="projectName" class="input-field" value="Commercial Construction Project" required data-guidance-id="projectName">
+                                <!-- FIXED: Removed static value="Commercial Construction Project" -->
+                                <input type="text" id="projectName" class="input-field" required data-guidance-id="projectName">
                             </div>
                             <div class="form-group">
                                 <label for="projectType" class="label">Project Type:</label>
@@ -85,6 +86,7 @@
                         <div class="form-section-content">
                             <div class="form-group">
                                 <label for="clientName" class="label">Client Name/Company:</label>
+                                <!-- FIXED: Removed static value placeholder from input, keeping prompt placeholder -->
                                 <input type="text" id="clientName" class="input-field" placeholder="e.g., Acme Corp." required data-guidance-id="clientName">
                             </div>
                             <div class="form-group">
@@ -330,18 +332,87 @@
 
         <!-- Step 2: Labor Rates (Unchanged) -->
         <div id="wizardStep2" class="wizard-step-content hidden">
-            <!-- ... (Content of Step 2) ... -->
+            <div class="text-center mb-8">
+                <h2 class="step-title">Labor Rates & Skills</h2>
+                <p class="step-subtitle mx-auto">Configure the hourly rates for each skill level within your selected trades. You can also add or remove custom skill levels.</p>
+            </div>
+            <div id="dynamicLaborRateInputs" class="max-w-3xl mx-auto flex flex-col gap-6"> 
+                <!-- Dynamic content here -->
+            </div>
+            <div class="mt-6 text-center">
+                <a href="#" class="advanced-link" id="advancedLink">Show Advanced Skill Options</a>
+            </div>
+            <div id="advancedSkillLevelControls" class="hidden mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 max-w-md mx-auto">
+                <h4 class="font-semibold text-lg mb-3 text-center">Add Custom Skill to All Trades</h4>
+                <div class="form-group">
+                    <label for="newSkillTitle" class="label">New Skill Title:</label>
+                    <input type="text" id="newSkillTitle" class="input-field" placeholder="e.g., Lead Journeyman">
+                </div>
+                <div class="form-group">
+                    <label for="newSkillRate" class="label">New Skill Rate ($/hr):</label>
+                    <input type="number" id="newSkillRate" class="input-field" value="0">
+                </div>
+                <button id="addSkillLevelBtn" class="btn btn-primary w-full mt-2">Add Skill Level</button>
+            </div>
         </div>
 
         <!-- Step 4: Financial Settings (Updated step number) -->
         <div id="wizardStep4" class="wizard-step-content hidden">
-            <!-- ... (Content of Step 4) ... -->
+            <div class="text-center mb-8">
+                <h2 class="step-title">Final Project Settings</h2>
+                <p class="step-subtitle mx-auto">Apply your standard markups and other financial considerations to finalize the estimate's pricing structure.</p>
+            </div>
+            <div class="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                <div class="form-group" data-guidance-id="overhead">
+                    <label for="overhead" class="label">Overhead (%):</label>
+                    <input type="number" id="overhead" class="input-field" value="10" step="0.01">
+                </div>
+                <div class="form-group" data-guidance-id="profitMargin">
+                    <label for="profitMargin" class="label">Desired Profit (%):</label>
+                    <input type="number" id="profitMargin" class="input-field" value="15" step="0.01">
+                </div>
+                <div class="form-group" data-guidance-id="materialMarkup">
+                    <label for="materialMarkup" class="label">Material Markup (%):</label>
+                    <input type="number" id="materialMarkup" class="input-field" value="10" step="0.01">
+                </div>
+                <div class="form-group" data-guidance-id="salesTax">
+                    <label for="salesTax" class="label">Sales Tax (%):</label>
+                    <input type="number" id="salesTax" class="input-field" value="0" step="0.01">
+                </div>
+                <div class="form-group" data-guidance-id="contingency">
+                    <label for="miscellaneous" class="label">Contingency / Misc. (%):</label>
+                    <input type="number" id="miscellaneous" class="input-field" value="5" step="0.01">
+                </div>
+                <div class="form-group" data-guidance-id="additionalConsiderations">
+                    <label class="label">Additional Considerations:</label>
+                    <div class="flex items-center">
+                        <input type="number" id="additionalConsiderationsValue" class="input-field rounded-r-none" value="0" step="0.01">
+                        <button id="toggleAdditionalConsiderationsBtn" type="button" class="btn btn-primary h-full rounded-l-none" style="min-width: 50px; padding: 0.5rem;">%</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Overwrite Confirmation Modal (Shared by Step 3) -->
-        <!-- ... (Modal content) ... -->
+        <div id="overwriteConfirmationModal" class="fixed inset-0 bg-gray-900 bg-opacity-75 z-20 hidden flex items-center justify-center">
+            <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-2xl max-w-sm">
+                <h3 class="text-xl font-bold mb-4 text-red-600 dark:text-red-400">Confirm Overwrite</h3>
+                <p class="text-gray-700 dark:text-gray-300 mb-6">Generating a new scope will **replace the previous version**. Continue?</p>
+                <div class="flex justify-end gap-3">
+                    <button id="cancelOverwriteBtn" class="btn btn-secondary">Cancel</button>
+                    <button id="overwriteConfirmBtn" class="btn btn-red">Yes, Overwrite</button>
+                </div>
+            </div>
+        </div>
 
         <!-- Navigation Buttons -->
-        <!-- ... (Navigation content) ... -->
+        <div class="wizard-navigation">
+            <button id="backToEntryBtn" class="btn btn-red">Back to Start</button>
+            <div>
+                <button id="prevStepBtn" class="btn btn-primary hidden">Previous</button>
+                <button id="nextStepBtn" class="btn btn-primary">Next Step</button>
+                <button id="startEstimatingBtn" class="btn btn-green hidden">Finish & Start Estimating</button>
+            </div>
+        </div>
     </div>
 </div>
