@@ -465,7 +465,7 @@ function attachEventListeners() {
                     task.accepted = e.target.checked;
                 }
             }
-            // ✨ EDITED: Handle category change separately and more specifically
+            // EDITED: Handle category change separately and more specifically
             if (e.target.classList.contains('task-category-select')) {
                 const taskId = parseInt(e.target.dataset.taskId);
                 const task = generatedScopeTasks.find(t => t.id === taskId);
@@ -475,7 +475,7 @@ function attachEventListeners() {
             }
         });
         taskLineItemsContainer.addEventListener('click', (e) => {
-            // ✨ EDITED: Changed class name to task-reject-btn for clarity
+            // EDITED: Changed class name to task-reject-btn for clarity
             if (e.target.classList.contains('task-reject-btn')) {
                 const row = e.target.closest('.line-item-row');
                 const checkbox = row.querySelector('.task-checkbox');
@@ -756,7 +756,7 @@ function renderMockScopeData(generateNewData = true) {
         if (scopeExclusionsTextarea) projectSettings.scopeExclusions = projectSettings.scopeExclusions || "- Permitting fees are excluded.\n- Hazardous material abatement is excluded from this scope.";
     }
 
-    if (scopeNarrativeTextarea) scopeNarrativeTextarea.value = projectSettings.scopeNarrative;
+    if (scopeNarrativeTextarea) projectSettings.scopeNarrative = projectSettings.scopeNarrative;
     if (scopeInclusionsTextarea) scopeInclusionsTextarea.value = projectSettings.scopeInclusions;
     if (scopeExclusionsTextarea) scopeExclusionsTextarea.value = projectSettings.scopeExclusions;
 
@@ -852,7 +852,7 @@ export function updateSelectedTradesDisplay() {
     });
 }
 
-// ✨ FIXED: Function to correctly position the trades dropdown
+// FIXED: Function to correctly position the trades dropdown
 function showTradeDropdown() {
     if (!tradesDropdown || !tradeSearchInput) return;
     
@@ -916,7 +916,7 @@ function populateWizardInputs() {
     if (projectTypeSelect) projectTypeSelect.value = projectSettings.projectType || 'Commercial';
     if (projectStateSelect) projectStateSelect.value = projectSettings.projectState || 'CA';
     
-    // ✨ FIXED: Ensure advanced details fields are loaded as empty strings for a new project
+    // FIXED: Ensure advanced details fields are loaded as empty strings for a new project
     const projectAddressInput = document.getElementById('projectAddress');
     if (projectAddressInput) projectAddressInput.value = projectSettings.projectAddress || '';
     const projectCityInput = document.getElementById('projectCity');
