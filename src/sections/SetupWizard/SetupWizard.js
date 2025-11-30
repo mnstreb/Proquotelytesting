@@ -465,22 +465,18 @@ function attachEventListeners() {
                     task.accepted = e.target.checked;
                 }
             }
-        });
-        taskLineItemsContainer.addEventListener('change', (e) => {
-            if (e.target.classList.contains('input-field') && e.target.closest('.line-item-row')) {
-                const row = e.target.closest('.line-item-row');
-                const checkbox = row.querySelector('.task-checkbox');
-                if (checkbox) {
-                    const taskId = parseInt(checkbox.dataset.taskId);
-                    const task = generatedScopeTasks.find(t => t.id === taskId);
-                    if (task) {
-                        task.category = e.target.value;
-                    }
+            // ✨ EDITED: Handle category change separately and more specifically
+            if (e.target.classList.contains('task-category-select')) {
+                const taskId = parseInt(e.target.dataset.taskId);
+                const task = generatedScopeTasks.find(t => t.id === taskId);
+                if (task) {
+                    task.category = e.target.value;
                 }
             }
         });
         taskLineItemsContainer.addEventListener('click', (e) => {
-            if (e.target.classList.contains('btn-red-outline')) {
+            // ✨ EDITED: Changed class name to task-reject-btn for clarity
+            if (e.target.classList.contains('task-reject-btn')) {
                 const row = e.target.closest('.line-item-row');
                 const checkbox = row.querySelector('.task-checkbox');
                 if (checkbox) {
@@ -532,6 +528,39 @@ function updateGuidance(id) {
 }
 
 
+// --- Logo Management ---
+function handleLogoInputChange(event) {
+    const file = event.target.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            projectSettings.contractorLogo = e.target.result;
+            loadSavedLogo();
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function handleLogoDrop(event) {
+    event.preventDefault();
+    logoUploadArea.classList.remove('drag-over');
+    const file = event.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            projectSettings.contractorLogo = e.target.result;
+            loadSavedLogo();
+        };
+        reader.readAsDataURL(file);
+    }
+}
+
+function clearLogo() {
+    projectSettings.contractorLogo = '';
+    loadSavedLogo();
+}
+
+
 // --- File Management Functions (New and Updated) ---
 
 function updateUploadedFiles(newFiles) {
@@ -567,7 +596,7 @@ function renderUploadedFiles() {
     uploadedFilesContainer.innerHTML = uploadedFiles.map((file, index) => `
         <div class="flex items-center justify-between p-3 border-b border-gray-200 dark:border-gray-700 last:border-b-0">
             <span class="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">${file.name}</span>
-            <button type="button" class="delete-file-btn ml-2 text-red-500 hover:text-red-700 transition duration-150" data-index="${index}">
+            <button type="button" class="delete-file-btn ml-2 text-red-500 hover:text-red-700 transition duration-150" data-index="${index}" title="Remove file">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -747,12 +776,12 @@ function renderMockScopeData(generateNewData = true) {
         row.innerHTML = `
             <input type="checkbox" id="task-${task.id}" data-task-id="${task.id}" ${task.accepted ? 'checked' : ''} class="task-checkbox">
             <label for="task-${task.id}" class="flex-grow text-sm cursor-pointer">${task.description} <span class="text-xs text-blue-500">(${task.trade})</span></label>
-            <select class="input-field w-32 text-xs" data-task-id="${task.id}">
+            <select class="input-field w-32 text-xs task-category-select" data-task-id="${task.id}">
                 <option value="Labor" ${task.category === 'Labor' ? 'selected' : ''}>Labor</option>
                 <option value="Material" ${task.category === 'Material' ? 'selected' : ''}>Material</option>
                 <option value="Subcontractor" ${task.category === 'Subcontractor' ? 'selected' : ''}>Subcontractor</option>
             </select>
-            <button class="btn btn-red-outline btn-sm py-1 px-3">Reject</button>
+            <button class="btn btn-secondary-outline btn-sm py-1 px-3 task-reject-btn">Reject</button>
         `;
         taskLineItemsContainer.appendChild(row);
     });
@@ -792,6 +821,21 @@ export function populateTradesDropdown() {
         tradesDropdown.innerHTML = `<p class="text-center text-gray-500 p-2">No trades found.</p>`;
     }
 }
+
+function handleTradeSelection(target) {
+    const trade = target.value;
+    const isChecked = target.checked;
+
+    if (isChecked) {
+        if (!projectSettings.activeTrades.includes(trade)) {
+            projectSettings.activeTrades.push(trade);
+        }
+    } else {
+        projectSettings.activeTrades = projectSettings.activeTrades.filter(t => t !== trade);
+    }
+    updateSelectedTradesDisplay();
+}
+
 export function updateSelectedTradesDisplay() {
     if (!selectedTradesDisplay) return;
     selectedTradesDisplay.innerHTML = '';
@@ -807,9 +851,226 @@ export function updateSelectedTradesDisplay() {
         `;
     });
 }
+
+// ✨ FIXED: Function to correctly position the trades dropdown
+function showTradeDropdown() {
+    if (!tradesDropdown || !tradeSearchInput) return;
+    
+    // Calculate position of the dropdown relative to the tradeSearchInput
+    const rect = tradeSearchInput.getBoundingClientRect();
+    const containerRect = setupWizardContainer.getBoundingClientRect(); // Use wizard container for offset
+
+    // FIXED: Set position and width dynamically to ensure it stays below the input
+    tradesDropdown.style.width = `${rect.width}px`;
+    tradesDropdown.style.left = `${rect.left - containerRect.left}px`;
+    // Position below the input, plus a small gap (relative to the container scroll position)
+    tradesDropdown.style.top = `${rect.bottom - containerRect.top + setupWizardContainer.scrollTop + 5}px`;
+    
+    tradesDropdown.classList.remove('hidden');
+}
+
+function hideTradeDropdown() {
+    // Delay hiding to allow click events on checkboxes inside the dropdown
+    setTimeout(() => {
+        if (!tradesDropdown) return;
+        
+        // Check if the focus is still inside the multi-select container (input or dropdown)
+        const activeElement = document.activeElement;
+        const isFocusInside = tradesDropdown.contains(activeElement) || tradeSearchInput.contains(activeElement);
+
+        if (!isFocusInside) {
+            tradesDropdown.classList.add('hidden');
+        }
+    }, 150);
+}
+
+function toggleTradeDropdown(event) {
+    // Only toggle if clicking the display area itself, not a remove tag
+    if (event.target.classList.contains('remove-tag')) return;
+
+    if (tradesDropdown.classList.contains('hidden')) {
+        showTradeDropdown();
+    } else {
+        tradesDropdown.classList.add('hidden');
+    }
+}
+
 export function updateSalesTaxForState(stateCode) {
     const taxRate = stateSalesTax[stateCode] || 0;
     if (salesTaxInput) salesTaxInput.value = taxRate;
     projectSettings.salesTax = taxRate;
     updateGuidance('projectState'); 
+}
+
+function toggleAdvancedDetails() {
+    isAdvancedModeActive = !isAdvancedModeActive;
+    if (advancedDetailsSection) advancedDetailsSection.classList.toggle('hidden', !isAdvancedModeActive);
+    if (showAdvancedDetailsLink) showAdvancedDetailsLink.textContent = isAdvancedModeActive ? 'Hide Advanced Details' : 'Show Advanced Details';
+    updateGuidance('default');
+}
+
+function populateWizardInputs() {
+    // Load data from projectSettings into the wizard inputs
+    if (projectNameInput) projectNameInput.value = projectSettings.projectName || '';
+    if (clientNameInput) clientNameInput.value = projectSettings.clientName || '';
+    if (projectTypeSelect) projectTypeSelect.value = projectSettings.projectType || 'Commercial';
+    if (projectStateSelect) projectStateSelect.value = projectSettings.projectState || 'CA';
+    
+    // ✨ FIXED: Ensure advanced details fields are loaded as empty strings for a new project
+    const projectAddressInput = document.getElementById('projectAddress');
+    if (projectAddressInput) projectAddressInput.value = projectSettings.projectAddress || '';
+    const projectCityInput = document.getElementById('projectCity');
+    if (projectCityInput) projectCityInput.value = projectSettings.projectCity || '';
+    const projectZipInput = document.getElementById('projectZip');
+    if (projectZipInput) projectZipInput.value = projectSettings.projectZip || '';
+    const startDateInput = document.getElementById('startDate');
+    if (startDateInput) startDateInput.value = projectSettings.startDate || '';
+    const endDateInput = document.getElementById('endDate');
+    if (endDateInput) endDateInput.value = projectSettings.endDate || '';
+    const projectIDInput = document.getElementById('projectID');
+    if (projectIDInput) projectIDInput.value = projectSettings.projectID || '';
+    const projectDescriptionTextarea = document.getElementById('projectDescription');
+    if (projectDescriptionTextarea) projectDescriptionTextarea.value = projectSettings.projectDescription || '';
+    
+    // Initial call to update sales tax
+    updateSalesTaxForState(projectSettings.projectState);
+}
+
+
+// --- Wizard Step 2 Logic ---
+function populateWizardStep2LaborRates() {
+    if (!dynamicLaborRateInputs) return;
+    dynamicLaborRateInputs.innerHTML = '';
+    
+    projectSettings.activeTrades.forEach(trade => {
+        const rates = projectSettings.allTradeLaborRates[trade];
+        if (rates) {
+            dynamicLaborRateInputs.innerHTML += renderTradeRateGroup(trade, rates);
+        }
+    });
+
+    if (advancedSkillLevelControls) {
+        advancedSkillLevelControls.classList.toggle('hidden', !isAdvancedModeActive);
+    }
+}
+
+function updateLaborRate(trade, role, rate) {
+    rate = parseFloat(rate);
+    if (!isNaN(rate) && rate >= 0) {
+        if (projectSettings.allTradeLaborRates[trade]) {
+            projectSettings.allTradeLaborRates[trade][role] = rate;
+        }
+    } else {
+        renderMessageBoxCallback("Please enter a valid, non-negative hourly rate.");
+    }
+}
+
+function toggleAdvancedRates() {
+    isAdvancedModeActive = !isAdvancedModeActive;
+    if (advancedSkillLevelControls) advancedSkillLevelControls.classList.toggle('hidden', !isAdvancedModeActive);
+    if (advancedLink) advancedLink.textContent = isAdvancedModeActive ? 'Hide Advanced Skill Options' : 'Show Advanced Skill Options';
+}
+
+function addSkillLevelFromAdvanced() {
+    const title = newSkillTitleInput.value.trim();
+    const rate = parseFloat(newSkillRateInput.value);
+
+    if (!title) {
+        renderMessageBoxCallback("Please enter a title for the new skill level.");
+        return;
+    }
+    if (isNaN(rate) || rate < 0) {
+        renderMessageBoxCallback("Please enter a valid, non-negative hourly rate for the new skill.");
+        return;
+    }
+
+    // Add skill to all active trades
+    projectSettings.activeTrades.forEach(trade => {
+        if (projectSettings.allTradeLaborRates[trade]) {
+            projectSettings.allTradeLaborRates[trade][title] = rate;
+        }
+    });
+
+    // Clear inputs and re-render step 2
+    newSkillTitleInput.value = '';
+    newSkillRateInput.value = '0';
+    populateWizardStep2LaborRates();
+    renderMessageBoxCallback(`Skill level "${title}" added to all active trades with a rate of $${rate.toFixed(2)}/hr.`);
+}
+
+function confirmRemoveSkillLevel(trade, role) {
+    renderMessageBoxCallback(`Are you sure you want to remove the skill "${role}" from the "${trade}" trade?`, () => {
+        removeSkillLevel(trade, role);
+        if(closeMessageBoxCallback) closeMessageBoxCallback();
+    }, true);
+}
+
+function removeSkillLevel(trade, role) {
+    if (projectSettings.allTradeLaborRates[trade] && projectSettings.allTradeLaborRates[trade].hasOwnProperty(role)) {
+        delete projectSettings.allTradeLaborRates[trade][role];
+        populateWizardStep2LaborRates();
+    }
+}
+
+function renderTradeRateGroup(trade, rates) {
+    const skillLevels = Object.keys(rates);
+    
+    let rows = '';
+    skillLevels.forEach(role => {
+        const rate = rates[role];
+        // Allow removing custom skills, but prevent removing core/default roles
+        const isRemovable = !["Project Manager", "Superintendent", "General Foreman", "Foreman", "Journeyman", "Apprentice"].includes(role);
+        
+        rows += `
+            <div class="skill-level-row">
+                <span class="skill-name-display">${role}</span>
+                <div class="rate-input-group">
+                    <span class="rate-label">$/hr:</span>
+                    <input type="number" value="${rate}" data-trade="${trade}" data-role="${role}" class="input-field rate-input" step="0.01">
+                    ${isRemovable ? `<button type="button" class="remove-skill-btn" data-trade="${trade}" data-role="${role}" title="Remove Skill Level"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}
+                </div>
+            </div>
+        `;
+    });
+
+    return `
+        <div class="trade-labor-rates-group">
+            <h3>${trade}</h3>
+            <div>${rows}</div>
+        </div>
+    `;
+}
+
+// --- Wizard Step 3 Logic ---
+function populateWizardStep3ScopeBuilder() {
+    updateUploadStatus();
+    renderUploadedFiles();
+    renderMockScopeData(false); // Render existing mock data if generated
+}
+
+
+// --- Wizard Step 4 Logic ---
+
+function populateWizardStep4Settings() {
+    if (profitMarginInput) profitMarginInput.value = projectSettings.profitMargin;
+    if (salesTaxInput) salesTaxInput.value = projectSettings.salesTax;
+    if (miscellaneousInput) miscellaneousInput.value = projectSettings.miscellaneous;
+    if (overheadInput) overheadInput.value = projectSettings.overhead;
+    if (materialMarkupInput) materialMarkupInput.value = projectSettings.materialMarkup;
+    
+    if (additionalConsiderationsValueInput) additionalConsiderationsValueInput.value = projectSettings.additionalConsiderationsValue;
+    if (toggleAdditionalConsiderationsBtn) {
+        toggleAdditionalConsiderationsBtn.textContent = projectSettings.additionalConsiderationsType === '%' ? '%' : '$';
+    }
+}
+
+function toggleAdditionalConsiderationsType() {
+    if (projectSettings.additionalConsiderationsType === '%') {
+        projectSettings.additionalConsiderationsType = '$';
+        toggleAdditionalConsiderationsBtn.textContent = '$';
+    } else {
+        projectSettings.additionalConsiderationsType = '%';
+        toggleAdditionalConsiderationsBtn.textContent = '%';
+    }
+    renderMessageBoxCallback(`Additional Considerations type changed to ${projectSettings.additionalConsiderationsType}.`);
 }
