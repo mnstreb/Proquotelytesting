@@ -621,6 +621,24 @@ body.dark-theme .btn-secondary-outline:hover {
     flex-shrink: 0;
 }
 
+/* === EDITED: Styles for visual separation of scope textareas === */
+#scopeOutputPanel textarea {
+    /* Base style for all textareas in this panel */
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    padding: 10px;
+    border-radius: 8px;
+    transition: all 0.2s;
+    /* Ensure no margin interference from generic form-group styles */
+    margin-bottom: 0 !important;
+}
+#scopeOutputPanel textarea:focus {
+    background-color: white;
+    border-color: #6366f1;
+}
+/* === END EDITED SECTION === */
+
+
 /* Dark Theme Adjustments for Step 3 */
 body.dark-theme #taskLineItemsContainer {
     border-color: #334155;
@@ -649,9 +667,19 @@ body.dark-theme #taskLineItemsContainer .task-reject-btn {
     color: #94a3b8;
     border-color: #475569;
 }
-body.dark-theme #taskLineItemsContainer .task-reject-btn:hover {
+body.dark-theme .btn-secondary-outline:hover {
     background-color: #334155;
     color: #f1f5f9;
+}
+
+body.dark-theme #scopeOutputPanel textarea {
+    background-color: #1e293b;
+    border-color: #334155;
+    color: #e2e8f0;
+}
+body.dark-theme #scopeOutputPanel textarea:focus {
+    background-color: #2d3748;
+    border-color: #818cf8;
 }
 
 /* --- END STEP 3 SCOPE REVIEW STYLES --- */
