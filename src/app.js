@@ -697,7 +697,7 @@ function deleteLaborEntry(itemId, laborId) {
 }
 
 /**
- * ✨ NEW: Toggles all line items between expanded and collapsed states.
+ * NEW: Toggles all line items between expanded and collapsed states.
  */
 function toggleAllItems() {
     if (!estimateItemsContainer) return;
@@ -722,7 +722,7 @@ function toggleAllItems() {
 }
 
 /**
- * ✨ NEW: Updates the collapse/expand icon based on the state of the items.
+ * NEW: Updates the collapse/expand icon based on the state of the items.
  */
 function updateCollapseIcon() {
     const collapseIconElem = document.getElementById('collapseIcon');
@@ -1197,9 +1197,25 @@ async function handleAIChatSend(isRetry = false) {
 
 function startDetailedEstimate() {
     currentAppMode = 'detailed';
+    
+    // Reset projectSettings and estimateItems from their initial states
     projectSettings = JSON.parse(JSON.stringify(initialProjectSettings));
     estimateItems = JSON.parse(JSON.stringify(initialEstimateItems));
+    
+    // Set default logo
     projectSettings.contractorLogo = PERMANENT_DEFAULT_LOGO;
+
+    // ✨ EDITED: Ensure General trade is active for new detailed estimates
+    projectSettings.activeTrades = ["General"]; 
+    
+    // ✨ EDITED: Ensure the first labor entry uses the General trade and a default role
+    if (estimateItems.length > 0 && estimateItems[0].laborEntries.length > 0) {
+        const firstLaborEntry = estimateItems[0].laborEntries[0];
+        firstLaborEntry.trade = "General";
+        const availableRoles = Object.keys(projectSettings.allTradeLaborRates["General"] || {});
+        firstLaborEntry.rateRole = availableRoles.length > 0 ? availableRoles[0] : "Journeyman";
+    }
+
 
     entryPointContainer.classList.add('hidden');
     mainApp.classList.add('hidden');
